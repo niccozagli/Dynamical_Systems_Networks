@@ -11,10 +11,8 @@ def euler_maruyama_isotropic(
     rng=None,
     *,
     stats_fn,
-    stats_writer,   # (csv_writer, file_handle)
+    stats_writer,   # HDF5 stats writer handle
 ):
-    writer, fh = stats_writer  # required, bound once
-
     x = np.asarray(x0, dtype=float).reshape(-1)
     d = x.size
 
@@ -30,7 +28,7 @@ def euler_maruyama_isotropic(
     t = float(tmin)
 
     if params_int.write_stats_at_start:
-        write_stats(writer,fh,stats_fn(x, t, 0, params_F))
+        write_stats(stats_writer, stats_fn(x, t, 0, params_F))
         
 
     for step in range(1, n + 1):
@@ -41,6 +39,6 @@ def euler_maruyama_isotropic(
         t = tmin + step * dt
 
         if step % stats_every == 0:
-            write_stats(writer, fh, stats_fn(x, t, step, params_F))
+            write_stats(stats_writer, stats_fn(x, t, step, params_F))
 
     return x
