@@ -9,3 +9,6 @@ class EulerMaruyamaParams(BaseModel):
 
     stats_every: int = Field(1, gt=0)
     write_stats_at_start: bool = True
+
+    state_every: int = Field(1, gt=0)
+    write_state_at_start: bool = True
