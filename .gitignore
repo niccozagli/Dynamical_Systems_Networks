@@ -21,4 +21,5 @@ wheels/
 *.json
 *parquet
 .DS_Store
-.mp4
+*.mp4
+*.h5
