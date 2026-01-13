@@ -4,10 +4,11 @@ Python package for studying dynamical systems on networks.
 
 ## Installation
 
-This project uses Poetry.
+This project uses `uv`.
 
 ```bash
-poetry install
+uv venv --python 3.12
+uv sync
 ```
 
 ## How to add a new dynamical system
