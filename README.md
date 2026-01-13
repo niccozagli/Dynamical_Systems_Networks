@@ -7,8 +7,16 @@ Python package for studying dynamical systems on networks.
 This project uses `uv`.
 
 ```bash
-uv venv --python 3.12
+uv venv --python 3.10
 uv sync
+```
+
+## How to run a simulation
+
+Create a config file (e.g., `configs/config.json`) and run:
+
+```bash
+uv run python scripts/run_simulation.py --config configs/config.json --output-dir results --run-id run_0001
 ```
 
 ## How to add a new dynamical system
