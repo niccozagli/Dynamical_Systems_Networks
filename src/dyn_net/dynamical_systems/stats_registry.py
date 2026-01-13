@@ -1,7 +1,9 @@
 from .double_well_single import compute_stats as dw_stats, STATS_FIELDS as dw_fields
+from .kuramoto import compute_stats as kuramoto_stats, STATS_FIELDS as kuramoto_fields
 
 _STATS_REGISTRY = {
     "double_well_single": (dw_stats, dw_fields),
+    "kuramoto": (kuramoto_stats, kuramoto_fields),
 }
 
 def get_stats(name: str):
