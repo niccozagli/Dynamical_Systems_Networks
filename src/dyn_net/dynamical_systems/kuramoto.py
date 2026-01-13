@@ -40,3 +40,23 @@ def compute_stats(x, t, step, p):
         "order_param": float(np.abs(r)),
         "phase_var": float(np.var(x_wrapped)),
     }
+
+
+def build_initial_condition(cfg, n, rng):
+    if "values" in cfg:
+        arr = np.asarray(cfg["values"], dtype=float).reshape(-1)
+        if arr.size != n:
+            raise ValueError("initial_condition.values has wrong dimension")
+        return arr
+    kind = cfg.get("type", "uniform")
+    if kind == "zeros":
+        return np.zeros(n, dtype=float)
+    if kind == "normal":
+        mean = float(cfg.get("mean", 0.0))
+        std = float(cfg.get("std", 1.0))
+        return rng.normal(mean, std, size=n)
+    if kind == "uniform":
+        low = float(cfg.get("low", 0.0))
+        high = float(cfg.get("high", 2 * np.pi))
+        return rng.uniform(low, high, size=n)
+    raise ValueError(f"Unknown initial_condition.type '{kind}'")
