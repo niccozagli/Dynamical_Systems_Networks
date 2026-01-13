@@ -12,8 +12,8 @@ def euler_maruyama_isotropic(
     params_G,
     rng=None,
     *,
-    stats_fn,
-    stats_writer,   # HDF5 stats writer handle
+    stats_fn=None,
+    stats_writer=None,   # HDF5 stats writer handle
     state_writer=None,   # HDF5 state writer handle
     state_transform=None,
 ):
@@ -33,7 +33,7 @@ def euler_maruyama_isotropic(
 
     t = float(tmin)
 
-    if params_int.write_stats_at_start:
+    if stats_writer is not None and stats_fn is not None and params_int.write_stats_at_start:
         write_stats(stats_writer, stats_fn(x, t, 0, params_F))
     if state_writer is not None and params_int.write_state_at_start:
         x_state = state_transform(x) if state_transform is not None else x
@@ -57,7 +57,7 @@ def euler_maruyama_isotropic(
         x += dt * drift + sqrt_dt * sigma * noise
         t = tmin + step * dt
 
-        if step % stats_every == 0:
+        if stats_writer is not None and stats_fn is not None and step % stats_every == 0:
             write_stats(stats_writer, stats_fn(x, t, step, params_F))
         if state_writer is not None and step % state_every == 0:
             x_state = state_transform(x) if state_transform is not None else x
@@ -74,8 +74,8 @@ def euler_maruyama_isotropic_timed(
     params_G,
     rng=None,
     *,
-    stats_fn,
-    stats_writer,   # HDF5 stats writer handle
+    stats_fn=None,
+    stats_writer=None,   # HDF5 stats writer handle
     state_writer=None,   # HDF5 state writer handle
     state_transform=None,
 ):
@@ -97,7 +97,7 @@ def euler_maruyama_isotropic_timed(
     write_stats_time = 0.0
     write_state_time = 0.0
 
-    if params_int.write_stats_at_start:
+    if stats_writer is not None and stats_fn is not None and params_int.write_stats_at_start:
         write_stats(stats_writer, stats_fn(x, t, 0, params_F))
     if state_writer is not None and params_int.write_state_at_start:
         x_state = state_transform(x) if state_transform is not None else x
@@ -122,7 +122,7 @@ def euler_maruyama_isotropic_timed(
         x += dt * drift + sqrt_dt * sigma * noise
         t = tmin + step * dt
 
-        if step % stats_every == 0:
+        if stats_writer is not None and stats_fn is not None and step % stats_every == 0:
             t0 = time.perf_counter()
             write_stats(stats_writer, stats_fn(x, t, step, params_F))
             write_stats_time += time.perf_counter() - t0

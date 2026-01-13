@@ -11,8 +11,8 @@ def integrate_chunked_jit(
     params_int: EulerMaruyamaParams,
     kernel_params: tuple,
     *,
-    stats_fn,
-    stats_writer,
+    stats_fn=None,
+    stats_writer=None,
     stats_params=None,
     state_writer=None,
     state_transform=None,
@@ -28,14 +28,15 @@ def integrate_chunked_jit(
     n = int((tmax - tmin) / dt)
     t = float(tmin)
 
-    if params_int.write_stats_at_start:
+    stats_enabled = stats_writer is not None and stats_fn is not None
+    if stats_enabled and params_int.write_stats_at_start:
         write_stats(stats_writer, stats_fn(x, t, 0, stats_params))
     if state_writer is not None and params_int.write_state_at_start:
         x_state = state_transform(x) if state_transform is not None else x
         write_state(state_writer, x_state, t, 0)
 
     step = 0
-    next_stats = stats_every
+    next_stats = stats_every if stats_enabled else n + 1
     next_state = state_every if state_writer is not None else n + 1
 
     while step < n:
@@ -44,7 +45,7 @@ def integrate_chunked_jit(
         x, t = kernel(x, t, dt, steps_to_run, *kernel_params)
         step = next_event
 
-        if step == next_stats:
+        if stats_enabled and step == next_stats:
             write_stats(stats_writer, stats_fn(x, t, step, stats_params))
             next_stats += stats_every
         if step == next_state:
@@ -61,8 +62,8 @@ def integrate_chunked_jit_timed(
     params_int: EulerMaruyamaParams,
     kernel_params: tuple,
     *,
-    stats_fn,
-    stats_writer,
+    stats_fn=None,
+    stats_writer=None,
     stats_params=None,
     state_writer=None,
     state_transform=None,
@@ -80,14 +81,15 @@ def integrate_chunked_jit_timed(
     write_stats_time = 0.0
     write_state_time = 0.0
 
-    if params_int.write_stats_at_start:
+    stats_enabled = stats_writer is not None and stats_fn is not None
+    if stats_enabled and params_int.write_stats_at_start:
         write_stats(stats_writer, stats_fn(x, t, 0, stats_params))
     if state_writer is not None and params_int.write_state_at_start:
         x_state = state_transform(x) if state_transform is not None else x
         write_state(state_writer, x_state, t, 0)
 
     step = 0
-    next_stats = stats_every
+    next_stats = stats_every if stats_enabled else n + 1
     next_state = state_every if state_writer is not None else n + 1
 
     loop_start = time.perf_counter()
@@ -97,7 +99,7 @@ def integrate_chunked_jit_timed(
         x, t = kernel(x, t, dt, steps_to_run, *kernel_params)
         step = next_event
 
-        if step == next_stats:
+        if stats_enabled and step == next_stats:
             t0 = time.perf_counter()
             write_stats(stats_writer, stats_fn(x, t, step, stats_params))
             write_stats_time += time.perf_counter() - t0
