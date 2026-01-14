@@ -19,6 +19,22 @@ Create a config file (e.g., `configs/config.json`) and run:
 uv run python scripts/run_simulation.py --config configs/config.json --output-dir results --run-id run_0001
 ```
 
+## Cluster notes
+
+If you are on a cluster with a network filesystem, use a local cache and a local virtual environment.
+
+```bash
+export UV_CACHE_DIR=/tmp/$USER/uv-cache
+mkdir -p "$UV_CACHE_DIR"
+
+rm -rf /tmp/$USER/uv-venv
+mkdir -p /tmp/$USER/uv-venv
+ln -sf /tmp/$USER/uv-venv .venv
+
+uv -vv venv --python 3.10 --clear
+uv -vv sync
+```
+
 ## How to add a new dynamical system
 
 Follow these steps to make a new system available by string name (e.g. `"kuramoto"`):
