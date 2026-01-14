@@ -20,6 +20,10 @@ CACHE="$SCRATCH/pypoetry-cache"
 
 export POETRY_CACHE_DIR="$CACHE"
 export PIP_CACHE_DIR="$CACHE"
+export OPENBLAS_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
 
 if [ ! -x "$VENV/bin/python" ]; then
   echo "Missing venv at $VENV. Create it on macomp02 before submitting jobs."
