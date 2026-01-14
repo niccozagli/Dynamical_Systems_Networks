@@ -42,7 +42,7 @@ export PIP_CACHE_DIR="$CACHE"
 /usr/bin/python3.10 -m venv "$VENV"
 source "$VENV/bin/activate"
 poetry config virtualenvs.create false
-poetry install --no-root -vv
+poetry install -vv
 ```
 
 ## How to add a new dynamical system
