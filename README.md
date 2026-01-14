@@ -4,11 +4,10 @@ Python package for studying dynamical systems on networks.
 
 ## Installation
 
-This project uses `uv`.
+This project uses Poetry.
 
 ```bash
-uv venv --python 3.10
-uv sync
+poetry install
 ```
 
 ## How to run a simulation
@@ -16,31 +15,22 @@ uv sync
 Create a config file (e.g., `configs/config.json`) and run:
 
 ```bash
-uv run python scripts/run_simulation.py --config configs/config.json --output-dir results --run-id run_0001
+poetry run python scripts/run_simulation.py --config configs/config.json --output-dir results --run-id run_0001
 ```
 
 ## Cluster notes
 
-If you are on a cluster with a network filesystem, use a local cache and a local virtual environment.
+On the cluster, install Poetry and ensure `~/.local/bin` is on your `PATH`:
 
 ```bash
-export UV_CACHE_DIR=/tmp/$USER/uv-cache
-mkdir -p "$UV_CACHE_DIR"
-
-rm -rf /tmp/$USER/uv-venv
-mkdir -p /tmp/$USER/uv-venv
-ln -sf /tmp/$USER/uv-venv .venv
-
-uv -vv venv --python 3.10 --clear
-uv -vv sync
+python3 -m pip install --user poetry
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-For array jobs, a shared venv is more efficient. Build it once on the cluster and reuse it:
+Then install dependencies inside the repo:
 
 ```bash
-mkdir -p $HOME/venvs/dynnet
-UV_CACHE_DIR=/tmp/$USER/uv-cache uv venv --python 3.10 --clear --path $HOME/venvs/dynnet
-UV_CACHE_DIR=/tmp/$USER/uv-cache uv sync --path $HOME/venvs/dynnet
+poetry install
 ```
 
 ## How to add a new dynamical system
