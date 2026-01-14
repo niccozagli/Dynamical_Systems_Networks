@@ -27,10 +27,22 @@ python3 -m pip install --user poetry
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Then install dependencies inside the repo:
+For this cluster, a shared venv on the scratch disk has been the most reliable option.
+Create it on macomp02 so it is local to `/scratchcomp02`:
 
 ```bash
-poetry install
+SCRATCH=/scratchcomp02/$USER
+VENV="$SCRATCH/venvs/dyn-net-py3.10"
+CACHE="$SCRATCH/pypoetry-cache"
+
+mkdir -p "$SCRATCH/venvs" "$CACHE"
+export POETRY_CACHE_DIR="$CACHE"
+export PIP_CACHE_DIR="$CACHE"
+
+/usr/bin/python3.10 -m venv "$VENV"
+source "$VENV/bin/activate"
+poetry config virtualenvs.create false
+poetry install --no-root -vv
 ```
 
 ## How to add a new dynamical system

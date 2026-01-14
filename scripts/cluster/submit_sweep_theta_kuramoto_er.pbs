@@ -14,16 +14,28 @@ cd "$REPO_DIR"
 # Ensure output folders exist.
 mkdir -p trash
 
-# Use a prebuilt shared virtual environment.
-VENV_DIR="$HOME/venvs/dynnet"
-if [ ! -x "$VENV_DIR/bin/python" ]; then
-  echo "Missing venv at $VENV_DIR. Create it once on the cluster before submitting jobs."
+SCRATCH=/scratchcomp02/$USER
+VENV="$SCRATCH/venvs/dyn-net-py3.10"
+CACHE="$SCRATCH/pypoetry-cache"
+
+export POETRY_CACHE_DIR="$CACHE"
+export PIP_CACHE_DIR="$CACHE"
+
+if [ ! -x "$VENV/bin/python" ]; then
+  echo "Missing venv at $VENV. Create it on macomp02 before submitting jobs."
   exit 1
 fi
-source "$VENV_DIR/bin/activate"
 
+source "$VENV/bin/activate"
+
+start=$(date +%s)
 python scripts/run_simulation.py \
   --config configs/config_Kuramoto_ER.json \
   --params-table params/sweep_theta_Kuramoto_ER.tsv \
   --row-index "${PBS_ARRAYID}" \
   --output-dir results/sweep_theta_Kuramoto_ER
+end=$(date +%s)
+
+run_dir="results/sweep_theta_Kuramoto_ER/run_${PBS_ARRAYID}"
+mkdir -p "$run_dir"
+printf "node=%s wall_s=%s\n" "$(hostname)" "$((end - start))" > "$run_dir/node_timing.txt"
