@@ -1,0 +1,27 @@
+#!/bin/bash
+#PBS -N kuramoto_theta_sweep
+#PBS -q standard
+#PBS -m a
+#PBS -e trash
+#PBS -o trash
+#PBS -t 1-15
+
+set -euo pipefail
+
+REPO_DIR="$HOME/Dynamical_Systems_Networks"
+cd "$REPO_DIR"
+
+# Use local cache and local venv storage to avoid NFS locks.
+export UV_CACHE_DIR=/tmp/$USER/uv-cache
+mkdir -p "$UV_CACHE_DIR"
+if [ ! -L .venv ]; then
+  rm -rf /tmp/$USER/uv-venv
+  mkdir -p /tmp/$USER/uv-venv
+  ln -s /tmp/$USER/uv-venv .venv
+fi
+
+uv run python scripts/run_simulation.py \
+  --config configs/config_Kuramoto_ER.json \
+  --params-table params/sweep_theta_Kuramoto_ER.tsv \
+  --row-index "${PBS_ARRAYID}" \
+  --output-dir results/sweep_theta_Kuramoto_ER
