@@ -11,6 +11,9 @@ set -euo pipefail
 REPO_DIR="$HOME/Dynamical_Systems_Networks"
 cd "$REPO_DIR"
 
+# Ensure output folders exist.
+mkdir -p trash
+
 # Use local cache and local venv storage to avoid NFS locks.
 export UV_CACHE_DIR=/tmp/$USER/uv-cache
 mkdir -p "$UV_CACHE_DIR"
