@@ -35,6 +35,14 @@ uv -vv venv --python 3.10 --clear
 uv -vv sync
 ```
 
+For array jobs, a shared venv is more efficient. Build it once on the cluster and reuse it:
+
+```bash
+mkdir -p $HOME/venvs/dynnet
+UV_CACHE_DIR=/tmp/$USER/uv-cache uv venv --python 3.10 --clear --path $HOME/venvs/dynnet
+UV_CACHE_DIR=/tmp/$USER/uv-cache uv sync --path $HOME/venvs/dynnet
+```
+
 ## How to add a new dynamical system
 
 Follow these steps to make a new system available by string name (e.g. `"kuramoto"`):

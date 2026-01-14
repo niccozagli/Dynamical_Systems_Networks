@@ -14,16 +14,15 @@ cd "$REPO_DIR"
 # Ensure output folders exist.
 mkdir -p trash
 
-# Use local cache and local venv storage to avoid NFS locks.
-export UV_CACHE_DIR=/tmp/$USER/uv-cache
-mkdir -p "$UV_CACHE_DIR"
-if [ ! -L .venv ]; then
-  rm -rf /tmp/$USER/uv-venv
-  mkdir -p /tmp/$USER/uv-venv
-  ln -s /tmp/$USER/uv-venv .venv
+# Use a prebuilt shared virtual environment.
+VENV_DIR="$HOME/venvs/dynnet"
+if [ ! -x "$VENV_DIR/bin/python" ]; then
+  echo "Missing venv at $VENV_DIR. Create it once on the cluster before submitting jobs."
+  exit 1
 fi
+source "$VENV_DIR/bin/activate"
 
-uv run python scripts/run_simulation.py \
+python scripts/run_simulation.py \
   --config configs/config_Kuramoto_ER.json \
   --params-table params/sweep_theta_Kuramoto_ER.tsv \
   --row-index "${PBS_ARRAYID}" \
