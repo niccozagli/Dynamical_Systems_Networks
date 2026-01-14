@@ -2,7 +2,7 @@
 #PBS -N check_scratch
 #PBS -q standard
 #PBS -l select=1:ncpus=1:mem=1gb
-#PBS -l walltime=00:02:00
+#PBS -l walltime=00:03:00
 #PBS -o /tmp/check_scratch.out
 #PBS -e /tmp/check_scratch.err
 
@@ -12,7 +12,7 @@ echo "HOST=$(hostname)"
 echo "TMPDIR=${TMPDIR:-}"
 echo "PBS_JOBFS=${PBS_JOBFS:-}"
 echo "SLURM_TMPDIR=${SLURM_TMPDIR:-}"
-echo "PWD=$PWD"
+echo "HOME=$HOME"
 
 # Quick write test (1GB) if TMPDIR is set
 if [ -n "${TMPDIR:-}" ]; then
@@ -27,3 +27,10 @@ mkdir -p "$SCRATCH"
 echo "Writing 1GB to $SCRATCH..."
 dd if=/dev/zero of="$SCRATCH/testfile" bs=1M count=1024 status=progress
 rm -f "$SCRATCH/testfile"
+
+# Quick write test in HOME
+HOME_TEST="$HOME/check_scratch_test"
+mkdir -p "$HOME_TEST"
+echo "Writing 1GB to $HOME_TEST..."
+dd if=/dev/zero of="$HOME_TEST/testfile" bs=1M count=1024 status=progress
+rm -f "$HOME_TEST/testfile"
