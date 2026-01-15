@@ -3,10 +3,10 @@ from numba import njit
 
 
 @njit
-def kuramoto_chunk(x, t, dt, steps, theta, indptr, indices, data, sigma):
+def kuramoto_chunk(x, t, dt, steps, theta, scale, indptr, indices, data, sigma):
     n = x.size
     sqrt_dt = np.sqrt(dt)
-    coef = -(theta / n)
+    coef = -(theta / (n * scale))
 
     sin_x = np.empty(n)
     cos_x = np.empty(n)
@@ -49,4 +49,4 @@ def build_kuramoto_kernel_params(pF, pG):
     indptr = np.asarray(A.indptr, dtype=np.int64)
     indices = np.asarray(A.indices, dtype=np.int64)
     data = np.asarray(A.data, dtype=float)
-    return (float(pF.theta), indptr, indices, data, float(pG.sigma))
+    return (float(pF.theta), float(pF.scale), indptr, indices, data, float(pG.sigma))

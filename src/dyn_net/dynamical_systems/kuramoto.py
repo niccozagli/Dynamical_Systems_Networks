@@ -6,6 +6,7 @@ from scipy import sparse
 class KuramotoParams(BaseModel):
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
     theta: float = Field(1.0)
+    scale: float = Field(1.0, gt=0.0)
     A: np.ndarray | sparse.spmatrix | sparse.sparray
 
     @field_validator("A")
@@ -24,7 +25,7 @@ def F(x, t, p: KuramotoParams) -> np.ndarray:
     sum_cos = p.A @ cos_x
     sum_sin = p.A @ sin_x
     coupling = sin_x * sum_cos - cos_x * sum_sin
-    return -(p.theta / float(n)) * coupling
+    return -(p.theta / (float(n) * float(p.scale))) * coupling
 
 
 STATS_FIELDS = ["step", "t", "order_param", "phase_var"]

@@ -6,10 +6,9 @@
     }
   },
   "network": {
-    "name": "erdos_renyi",
+    "name": "bistable_graphon",
     "params": {
-      "n": 500,
-      "p": 0.5
+      "n": 500
     }
   },
   "noise": {
@@ -20,10 +19,10 @@
   },
   "integrator": {
     "tmin": 0.0,
-    "tmax": 10000.0,
+    "tmax": 20000.0,
     "dt": 0.1,
     "stats_every": 10,
-    "state_every": 1000,
+    "state_every": 10000,
     "write_stats_at_start": true,
     "write_state_at_start": true
   },

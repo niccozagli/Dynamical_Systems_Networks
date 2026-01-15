@@ -5,7 +5,7 @@ from dyn_net.dynamical_systems.system_bundle import get_system_bundle
 from dyn_net.integrator.params import EulerMaruyamaParams
 from dyn_net.noise import get_noise
 from dyn_net.utils.initial_condition import build_initial_condition
-from dyn_net.utils.network import build_network_from_config
+from dyn_net.utils.network import build_network_from_config, update_system_params_for_network
 from dyn_net.utils.validation import validate_config
 
 
@@ -17,7 +17,13 @@ def prepare_network(config: dict):
 def prepare_system(config: dict, A):
     system_cfg = config["system"]
     system_params = dict(system_cfg.get("params", {}))
-    system_params["A"] = A
+    network_cfg = config["network"]
+    update_system_params_for_network(
+        system_params,
+        network_cfg["name"],
+        network_cfg.get("params", {}),
+        A,
+    )
     return get_system_bundle(system_cfg["name"], system_params)
 
 

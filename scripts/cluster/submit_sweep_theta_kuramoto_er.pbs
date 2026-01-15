@@ -8,16 +8,16 @@
 
 set -euo pipefail
 
-REPO_DIR="$HOME/Dynamical_Systems_Networks"
-cd "$REPO_DIR"
-
-# Ensure output folders exist.
-mkdir -p trash
-
 SCRATCH=/scratchcomp02/$USER
+REPO_DIR="$HOME/Dynamical_Systems_Networks"
+RUN_ROOT="$SCRATCH/dyn_net_runs"
+RUN_OUTPUT="$RUN_ROOT/sweep_theta_Kuramoto_ER"
+LOG_DIR="$RUN_ROOT/logs"
 VENV="$SCRATCH/venvs/dyn-net-py3.10"
 CACHE="$SCRATCH/pypoetry-cache"
 
+mkdir -p "$LOG_DIR" "$RUN_OUTPUT"
+cd "$REPO_DIR"
 export POETRY_CACHE_DIR="$CACHE"
 export PIP_CACHE_DIR="$CACHE"
 export OPENBLAS_NUM_THREADS=1
@@ -37,9 +37,9 @@ python scripts/run_simulation.py \
   --config configs/config_Kuramoto_ER.json \
   --params-table params/sweep_theta_Kuramoto_ER.tsv \
   --row-index "${PBS_ARRAYID}" \
-  --output-dir results/sweep_theta_Kuramoto_ER
+  --output-dir "$RUN_OUTPUT"
 end=$(date +%s)
 
-run_dir="results/sweep_theta_Kuramoto_ER/run_${PBS_ARRAYID}"
+run_dir="$RUN_OUTPUT/run_${PBS_ARRAYID}"
 mkdir -p "$run_dir"
 printf "node=%s wall_s=%s\n" "$(hostname)" "$((end - start))" > "$run_dir/node_timing.txt"

@@ -37,10 +37,12 @@ def main(
 
     
     # Optionally apply a row-based override table for sweeps/array jobs.
+    row_run_id = None
     if params_table:
         if row_index is None:
             raise ValueError("--row-index is required with --params-table")
         row = load_table_row(Path(params_table), row_index)
+        row_run_id = row.get("run_id")
         apply_overrides(config_data, row)
         table_applied = True
     else:
@@ -60,7 +62,11 @@ def main(
     state_transform = prepare_state_transform(config_data["system"]["name"])
 
     # Prepare output writers.
-    if table_applied and "run_id" in config_data:
+    # In sweeps, prefer the CLI run_id when explicitly provided (e.g., row/rep suffixes).
+    # Fall back to table run_id only when the CLI default is used.
+    if table_applied and row_run_id and run_id == "run_local":
+        run_id = row_run_id
+    elif (not table_applied) and ("run_id" in config_data):
         run_id = config_data["run_id"]
     run_dir = Path(output_dir) / str(run_id)
     run_dir.mkdir(parents=True, exist_ok=True)
