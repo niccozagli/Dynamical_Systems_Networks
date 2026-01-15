@@ -17,7 +17,8 @@ def euler_maruyama_isotropic(
     state_writer=None,   # HDF5 state writer handle
     state_transform=None,
 ):
-    x = np.asarray(x0, dtype=float).reshape(-1)
+    # Copy once to avoid aliasing x0 without adding per-step overhead.
+    x = np.asarray(x0, dtype=float).copy().reshape(-1)
     d = x.size
 
     tmin = params_int.tmin
@@ -79,7 +80,8 @@ def euler_maruyama_isotropic_timed(
     state_writer=None,   # HDF5 state writer handle
     state_transform=None,
 ):
-    x = np.asarray(x0, dtype=float).reshape(-1)
+    # Copy once to avoid aliasing x0 without adding per-step overhead.
+    x = np.asarray(x0, dtype=float).copy().reshape(-1)
     d = x.size
 
     tmin = params_int.tmin

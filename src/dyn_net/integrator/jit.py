@@ -17,7 +17,8 @@ def integrate_chunked_jit(
     state_writer=None,
     state_transform=None,
 ):
-    x = np.asarray(x0, dtype=float).reshape(-1)
+    # Copy once to avoid aliasing x0 without adding per-step overhead.
+    x = np.asarray(x0, dtype=float).copy().reshape(-1)
 
     tmin = params_int.tmin
     tmax = params_int.tmax
@@ -68,7 +69,8 @@ def integrate_chunked_jit_timed(
     state_writer=None,
     state_transform=None,
 ):
-    x = np.asarray(x0, dtype=float).reshape(-1)
+    # Copy once to avoid aliasing x0 without adding per-step overhead.
+    x = np.asarray(x0, dtype=float).copy().reshape(-1)
 
     tmin = params_int.tmin
     tmax = params_int.tmax
