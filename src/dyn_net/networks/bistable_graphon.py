@@ -16,6 +16,7 @@ class BistableGraphonParams(BaseModel):
     amplitude_3: float = 0.2
     mean_3: float = 0.8
     var_3: float = 0.0005
+    sort_latent: bool = False
     seed: int | None = None
 
 
@@ -35,6 +36,9 @@ def build(p: BistableGraphonParams) -> sparse.spmatrix:
     rng = np.random.default_rng(p.seed)
     # Sample latent positions in [0,1)
     u = rng.random(p.n)
+
+    if p.sort_latent:
+        u = np.sort(u) 
 
     # Evaluate the edge probability matrix prob[i,j] = w(u_i,u_j) 
     # We allow for sparse "sampling" (default is dense, rho_n = 1) and clipping (default values give w(x,y) < 0.5, so not needed in that case)
