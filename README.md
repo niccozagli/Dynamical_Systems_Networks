@@ -4,7 +4,16 @@ Python package for studying dynamical systems on networks.
 
 ## Installation
 
-This project uses Poetry.
+This project uses Poetry to manage the Python project. If you don't have Poetry you can easily download it at (https://python-poetry.org/docs/)
+
+This project uses Python 3.10. If you don't have this Python version, install it with pyenv (macOS/Linux):
+
+```bash
+pyenv install 3.10.13
+poetry env use 3.10.13
+```
+
+Then you can install all the dependencies needed for this project as:
 
 ```bash
 poetry install
@@ -12,40 +21,18 @@ poetry install
 
 ## How to run a simulation
 
-Create a config file (e.g., `configs/config.json`) and run:
+A template notebook on how to run a simulation of Kuramoto on graph is available at 
 
-```bash
-poetry run python scripts/run_simulation.py --config configs/config.json --output-dir results --run-id run_0001
-```
+- `notebooks/template_kuramoto_simulation_run.ipynb`
 
-## Cluster notes
+For the data analysis part of the results you can use the following notebook
 
-On the cluster, install Poetry and ensure `~/.local/bin` is on your `PATH`:
+- `notebooks/template_data_analysis.ipynb`
 
-```bash
-python3 -m pip install --user poetry
-export PATH="$HOME/.local/bin:$PATH"
-```
+Please note that the output of the simulation is continuously update as the simulation runs and can be synchronously read with the data analysis notebook as the simulation is running. 
 
-For this cluster, a shared venv on the scratch disk has been the most reliable option.
-Create it on macomp02 so it is local to `/scratchcomp02`:
-
-```bash
-SCRATCH=/scratchcomp02/$USER
-VENV="$SCRATCH/venvs/dyn-net-py3.10"
-CACHE="$SCRATCH/pypoetry-cache"
-
-mkdir -p "$SCRATCH/venvs" "$CACHE"
-export POETRY_CACHE_DIR="$CACHE"
-export PIP_CACHE_DIR="$CACHE"
-
-/usr/bin/python3.10 -m venv "$VENV"
-source "$VENV/bin/activate"
-poetry config virtualenvs.create false
-poetry install -vv
-```
-
-## How to add a new dynamical system
+<details>
+<summary>How to add a new dynamical system</summary>
 
 Follow these steps to make a new system available by string name (e.g. `"kuramoto"`):
 
@@ -73,3 +60,34 @@ Follow these steps to make a new system available by string name (e.g. `"kuramot
    - Register in `src/dyn_net/dynamical_systems/state_transform.py`.
 
 Once those are in place, `scripts/run_simulation.py` will accept the new system name in the config.
+</details>
+
+
+<!--
+## Cluster notes
+
+On the cluster, install Poetry and ensure `~/.local/bin` is on your `PATH`:
+
+```bash
+python3 -m pip install --user poetry
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+For this cluster, a shared venv on the scratch disk has been the most reliable option.
+Create it on macomp02 so it is local to `/scratchcomp02`:
+
+```bash
+SCRATCH=/scratchcomp02/$USER
+VENV="$SCRATCH/venvs/dyn-net-py3.10"
+CACHE="$SCRATCH/pypoetry-cache"
+
+mkdir -p "$SCRATCH/venvs" "$CACHE"
+export POETRY_CACHE_DIR="$CACHE"
+export PIP_CACHE_DIR="$CACHE"
+
+/usr/bin/python3.10 -m venv "$VENV"
+source "$VENV/bin/activate"
+poetry config virtualenvs.create false
+poetry install -vv
+```
+-->
