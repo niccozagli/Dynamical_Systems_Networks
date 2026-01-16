@@ -33,13 +33,18 @@ def _w(x: np.ndarray, y: np.ndarray, p: BistableGraphonParams) -> np.ndarray:
 
 def build(p: BistableGraphonParams) -> sparse.spmatrix:
     rng = np.random.default_rng(p.seed)
+    # Sample latent positions in [0,1)
     u = rng.random(p.n)
+
+    # Evaluate the edge probability matrix prob[i,j] = w(u_i,u_j) 
+    # We allow for sparse "sampling" (default is dense, rho_n = 1) and clipping (default values give w(x,y) < 0.5, so not needed in that case)
     uu = u[:, None]
     prob = p.rho_n * _w(uu, uu.T, p)
     prob = np.clip(prob, 0.0, 1.0)
 
+    # Establish a link A[i,j] = 1 if r[i,j] < p[i,j] (undirected graph i <-> j)
     r = rng.random((p.n, p.n))
-    mask = np.triu(r < prob, k=1)
+    mask = np.triu(r < prob, k=1) # keep only i < j of the boolean matrix [r<p]
     rows, cols = np.where(mask)
     data = np.ones(len(rows), dtype=np.int8)
     A = sparse.csr_matrix((data, (rows, cols)), shape=(p.n, p.n))
