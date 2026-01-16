@@ -39,7 +39,7 @@ if [ "$JOBS" -le 1 ]; then
       echo "Run $run_index / $total_runs (row $row, rep $rep)"
       start_ts=$(date +%s)
       run_id="row_${row}_rep_${rep}"
-      poetry run python scripts/run_simulation.py \
+      uv run python scripts/run_simulation.py \
         --config "$CONFIG_PATH" \
         --params-table "$TABLE_PATH" \
         --row-index "$row" \
@@ -67,7 +67,7 @@ else
     echo "Run ${idx} / ${TOTAL_RUNS} (row ${row}, rep ${rep})"
     start_ts=$(date +%s)
     run_id="row_${row}_rep_${rep}"
-    poetry run python scripts/run_simulation.py \
+    uv run python scripts/run_simulation.py \
       --config "$CONFIG_PATH" \
       --params-table "$TABLE_PATH" \
       --row-index "$row" \

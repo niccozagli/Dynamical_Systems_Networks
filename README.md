@@ -4,19 +4,19 @@ Python package for studying dynamical systems on networks.
 
 ## Installation
 
-This project uses Poetry to manage the Python project. If you don't have Poetry you can easily download it at (https://python-poetry.org/docs/)
+This project uses `uv` to manage the Python environment and dependencies. If you don't have uv, you can easily download it at (https://docs.astral.sh/uv/getting-started/installation/).
 
-This project uses Python 3.10. If you don't have this Python version, install it with pyenv (macOS/Linux):
+This project uses Python 3.10. The version is pinned in `.python-version`. If you don't have this Python version, `uv` can install it for you (macOS/Linux):
 
 ```bash
-pyenv install 3.10.13
-poetry env use 3.10.13
+uv python install
+uv venv
 ```
 
 Then you can install all the dependencies needed for this project as:
 
 ```bash
-poetry install
+uv sync
 ```
 
 ## How to run a simulation
@@ -66,28 +66,20 @@ Once those are in place, `scripts/run_simulation.py` will accept the new system 
 <!--
 ## Cluster notes
 
-On the cluster, install Poetry and ensure `~/.local/bin` is on your `PATH`:
-
-```bash
-python3 -m pip install --user poetry
-export PATH="$HOME/.local/bin:$PATH"
-```
-
 For this cluster, a shared venv on the scratch disk has been the most reliable option.
 Create it on macomp02 so it is local to `/scratchcomp02`:
 
 ```bash
 SCRATCH=/scratchcomp02/$USER
 VENV="$SCRATCH/venvs/dyn-net-py3.10"
-CACHE="$SCRATCH/pypoetry-cache"
+CACHE="$SCRATCH/uv-cache"
 
 mkdir -p "$SCRATCH/venvs" "$CACHE"
-export POETRY_CACHE_DIR="$CACHE"
+export UV_CACHE_DIR="$CACHE"
 export PIP_CACHE_DIR="$CACHE"
 
 /usr/bin/python3.10 -m venv "$VENV"
 source "$VENV/bin/activate"
-poetry config virtualenvs.create false
-poetry install -vv
+uv sync -v
 ```
 -->
