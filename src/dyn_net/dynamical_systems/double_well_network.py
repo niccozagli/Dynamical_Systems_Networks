@@ -83,4 +83,8 @@ def build_initial_condition(cfg, n, rng):
         low = float(cfg.get("low", -1.0))
         high = float(cfg.get("high", 1.0))
         return rng.uniform(low, high, size=2 * n)
+    if kind == "ordered_well":
+        x0 = np.zeros((n, 2), dtype=float)
+        x0[:, 0] = 1.0
+        return x0.reshape(-1)
     raise ValueError(f"Unknown initial_condition.type '{kind}'")
