@@ -1,7 +1,15 @@
 from .jit_kuramoto import kuramoto_chunk, build_kuramoto_kernel_params
+from .jit_double_well_network import (
+    double_well_network_chunk,
+    build_double_well_network_kernel_params,
+)
 
 _JIT_REGISTRY = {
     "kuramoto": (kuramoto_chunk, build_kuramoto_kernel_params),
+    "double_well_network": (
+        double_well_network_chunk,
+        build_double_well_network_kernel_params,
+    ),
 }
 
 
