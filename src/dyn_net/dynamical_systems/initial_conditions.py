@@ -3,9 +3,11 @@ from typing import Callable
 import numpy as np
 
 from .kuramoto import build_initial_condition as kuramoto_ic
+from .double_well_network import build_initial_condition as dwn_ic
 
 _IC_REGISTRY: dict[str, Callable[[dict, int, np.random.Generator], np.ndarray]] = {
     "kuramoto": kuramoto_ic,
+    "double_well_network": dwn_ic,
 }
 
 

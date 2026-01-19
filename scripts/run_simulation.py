@@ -74,7 +74,7 @@ def main(
     state_path = run_dir / "state.h5"
 
     stats_writer = open_stats_writer(stats_path, fieldnames=stats_fields)
-    state_writer = open_state_writer(state_path, dim=n)
+    state_writer = open_state_writer(state_path, dim=len(x0))
 
     # Run the JIT integrator and persist timings + config used.
     timings = None
