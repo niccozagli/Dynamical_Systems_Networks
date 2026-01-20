@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
+import copy
 import json
 from pathlib import Path
 from typing import Annotated
 
 import typer
-
 from dyn_net.integrator.jit import integrate_chunked_jit_timed
 from dyn_net.utils.simulation_steps import (
     prepare_initial_condition,
@@ -23,19 +23,15 @@ from dyn_net.utils.table_overrides import apply_overrides, load_table_row
 app = typer.Typer(add_completion=False)
 
 
-@app.command()
-def main(
-    config: Annotated[str, typer.Option(help="Path to base JSON config.")],
-    params_table: Annotated[str | None, typer.Option(help="CSV/TSV file with one run per row.")] = None,
-    row_index: Annotated[int | None, typer.Option(help="1-based row index in params table.")] = None,
-    output_dir: Annotated[str, typer.Option(help="Output directory.")] = "results",
-    run_id: Annotated[str, typer.Option(help="Run identifier used for output folder.")] = "run_local",
+def _run_single(
+    config_data: dict,
+    output_dir: str,
+    run_id: str,
+    *,
+    params_table: str | None = None,
+    row_index: int | None = None,
 ) -> None:
-    """Validate choices and parameters in a JSON config."""
-    config_path = Path(config)
-    config_data = json.loads(config_path.read_text())
-
-    
+    config_data = copy.deepcopy(config_data)
     # Optionally apply a row-based override table for sweeps/array jobs.
     row_run_id = None
     if params_table:
@@ -96,6 +92,27 @@ def main(
 
     (run_dir / "timings.json").write_text(json.dumps(timings, indent=2))
     (run_dir / "config_used.json").write_text(json.dumps(config_data, indent=2))
+
+
+@app.command()
+def main(
+    config: Annotated[str, typer.Option(help="Path to base JSON config.")],
+    params_table: Annotated[str | None, typer.Option(help="CSV/TSV file with one run per row.")] = None,
+    row_index: Annotated[int | None, typer.Option(help="1-based row index in params table.")] = None,
+    output_dir: Annotated[str, typer.Option(help="Output directory.")] = "results",
+    run_id: Annotated[str, typer.Option(help="Run identifier used for output folder.")] = "run_local",
+) -> None:
+    """Run a single simulation from a JSON config."""
+    config_path = Path(config)
+    config_data = json.loads(config_path.read_text())
+    _run_single(
+        config_data,
+        output_dir,
+        run_id,
+        params_table=params_table,
+        row_index=row_index,
+    )
+
 
 if __name__ == "__main__":
     app()

@@ -47,18 +47,50 @@ def open_stats_writer(
     return ["h5", fh, dset, fieldnames, idx]
 
 
-def write_stats(writer, row):
-    _, fh, dset, fieldnames, idx = writer
-    values = [row[name] for name in fieldnames]
-    arr = np.asarray(values, dtype=dset.dtype)
-    if arr.shape != (len(fieldnames),):
-        raise ValueError("Stats row has wrong shape.")
+def open_stats_buffer(
+    fieldnames,
+    n_rows,
+    *,
+    dtype=np.float64,
+):
+    fieldnames = tuple(fieldnames)
+    if not fieldnames:
+        raise ValueError("fieldnames must be non-empty.")
+    n_rows = int(n_rows)
+    if n_rows < 0:
+        raise ValueError("n_rows must be >= 0.")
+    arr = np.zeros((n_rows, len(fieldnames)), dtype=np.dtype(dtype))
+    return ["buffer", arr, fieldnames, 0]
 
-    dset.resize((idx + 1, dset.shape[1]))
-    dset[idx, :] = arr
-    writer[4] = idx + 1  # update index in-place
-    fh.flush()
+
+def write_stats(writer, row):
+    kind = writer[0]
+    if kind == "h5":
+        _, fh, dset, fieldnames, idx = writer
+        values = [row[name] for name in fieldnames]
+        arr = np.asarray(values, dtype=dset.dtype)
+        if arr.shape != (len(fieldnames),):
+            raise ValueError("Stats row has wrong shape.")
+
+        dset.resize((idx + 1, dset.shape[1]))
+        dset[idx, :] = arr
+        writer[4] = idx + 1  # update index in-place
+        fh.flush()
+        return
+    if kind == "buffer":
+        _, arr, fieldnames, idx = writer
+        if idx >= arr.shape[0]:
+            raise ValueError("Stats buffer overflow.")
+        values = [row[name] for name in fieldnames]
+        row_arr = np.asarray(values, dtype=arr.dtype)
+        if row_arr.shape != (len(fieldnames),):
+            raise ValueError("Stats row has wrong shape.")
+        arr[idx, :] = row_arr
+        writer[3] = idx + 1
+        return
+    raise ValueError(f"Unknown stats writer type '{kind}'.")
 
 
 def close_stats_writer(writer):
-    writer[1].close()
+    if writer[0] == "h5":
+        writer[1].close()

@@ -44,7 +44,7 @@ def F(x, t, p: DoubleWellNetworkParams) -> np.ndarray:
     return drift.reshape(-1)
 
 
-STATS_FIELDS = ["step", "t", "mean_x1", "mean_x2", "mean_x1_sq", "mean_x2_sq"]
+STATS_FIELDS = ["step", "t", "mean_x1", "mean_x1_abs", "mean_x2", "mean_x1_sq", "mean_x2_sq"]
 
 
 def compute_stats(x, t, step, p):
@@ -58,6 +58,7 @@ def compute_stats(x, t, step, p):
         "step": int(step),
         "t": float(t),
         "mean_x1": mean_x1,
+        "mean_x1_abs": float(abs(mean_x1)),
         "mean_x2": mean_x2,
         "mean_x1_sq": mean_x1_sq,
         "mean_x2_sq": mean_x2_sq,
