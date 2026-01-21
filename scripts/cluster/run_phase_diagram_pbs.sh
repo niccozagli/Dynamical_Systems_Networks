@@ -4,7 +4,7 @@
 #PBS -m be
 #PBS -j oe
 
-# --- NEW: request 1 node with max cores on medium ---
+# Request 1 node with 8 cores on medium
 #PBS -l nodes=1:ppn=8
 #PBS -l mem=4gb
 
@@ -61,12 +61,6 @@ echo "[$(date)] finished uv sync"
 echo
 
 # ---- Phase diagram runner ----
-# Usage:
-#   qsub -v ARGS="--config CONFIG --table TABLE --output-dir OUT \
-#     --graph-realizations N --noise-realizations N --flush-every N [--base-seed N] [--workers N]" \
-#     scripts/cluster/run_phase_diagram_pbs.sh
-# Note: WORKERS defaults to allocated cores on one node.
-
 CONFIG_PATH="configs/config_Kuramoto_ER.json"
 TABLE_PATH="params/sweep_theta_Kuramoto_ER.tsv"
 OUTPUT_DIR="results/sweep_theta_Kuramoto_ER_local"
@@ -76,52 +70,34 @@ FLUSH_EVERY="10"
 BASE_SEED=""
 WORKERS="${PBS_NUM_PPN:-${PBS_NP:-8}}"
 
-set -- $ARGS
+# Safer tokenization than `set -- $ARGS`
+read -r -a argv <<< "$ARGS"
+set -- "${argv[@]}"
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --config)
-      CONFIG_PATH="$2"
-      shift 2
-      ;;
-    --table)
-      TABLE_PATH="$2"
-      shift 2
-      ;;
-    --output-dir)
-      OUTPUT_DIR="$2"
-      shift 2
-      ;;
-    --graph-realizations)
-      GRAPH_REALIZATIONS="$2"
-      shift 2
-      ;;
-    --noise-realizations)
-      NOISE_REALIZATIONS="$2"
-      shift 2
-      ;;
-    --flush-every)
-      FLUSH_EVERY="$2"
-      shift 2
-      ;;
-    --base-seed)
-      BASE_SEED="$2"
-      shift 2
-      ;;
-    --workers)
-      WORKERS="$2"
-      shift 2
-      ;;
-    *)
-      echo "Unknown argument: $1"
-      exit 2
-      ;;
+    --config)            CONFIG_PATH="$2"; shift 2;;
+    --table)             TABLE_PATH="$2"; shift 2;;
+    --output-dir)        OUTPUT_DIR="$2"; shift 2;;
+    --graph-realizations) GRAPH_REALIZATIONS="$2"; shift 2;;
+    --noise-realizations) NOISE_REALIZATIONS="$2"; shift 2;;
+    --flush-every)       FLUSH_EVERY="$2"; shift 2;;
+    --base-seed)         BASE_SEED="$2"; shift 2;;
+    --workers)           WORKERS="$2"; shift 2;;
+    *) echo "Unknown argument: $1"; exit 2;;
   esac
 done
+
+ALLOC_CORES="${PBS_NUM_PPN:-${PBS_NP:-8}}"
+if [ "$WORKERS" -gt "$ALLOC_CORES" ]; then
+  echo "WARNING: WORKERS=$WORKERS > allocated cores=$ALLOC_CORES; capping to $ALLOC_CORES"
+  WORKERS="$ALLOC_CORES"
+fi
 
 echo "Allocated cores (PBS_NUM_PPN/PBS_NP) = ${PBS_NUM_PPN:-${PBS_NP:-unknown}}; using WORKERS=$WORKERS"
 echo
 
-# --- NEW: make output job-unique to avoid collisions across multiple PBS jobs ---
+# Make output job-unique to avoid collisions across PBS jobs
 OUTPUT_DIR="${OUTPUT_DIR%/}/job_${PBS_JOBID}"
 mkdir -p "$OUTPUT_DIR"
 echo "Output root for this job: $OUTPUT_DIR"
@@ -175,6 +151,9 @@ for row in $(seq 1 "$row_count"); do
   echo "Row $row / $row_count -> run_id=$run_id"
   start_ts=$(date +%s)
 
+  echo "[$(date)] launching $WORKERS workers for run_id=$run_id"
+  pids=()
+
   for worker_id in $(seq 0 $((WORKERS - 1))); do
     cmd=("$UV_PROJECT_ENVIRONMENT/bin/python" -u -X faulthandler scripts/run_bulk_parallel.py worker
       --config "$CONFIG_PATH"
@@ -192,15 +171,35 @@ for row in $(seq 1 "$row_count"); do
       cmd+=(--base-seed "$BASE_SEED")
     fi
     "${cmd[@]}" &
+
+    pid=$!
+    pids+=("$pid")
+    echo "[$(date)] started worker_id=$worker_id pid=$pid"
   done
 
-  # Wait for all workers for this row.
-  wait
+  echo "[$(date)] entering wait for run_id=$run_id"
+  fail=0
+  for pid in "${pids[@]}"; do
+    if wait "$pid"; then
+      echo "[$(date)] worker pid=$pid finished ok"
+    else
+      rc=$?
+      echo "[$(date)] worker pid=$pid failed (exit=$rc)"
+      fail=1
+    fi
+  done
+  echo "[$(date)] all workers waited for run_id=$run_id (fail=$fail)"
 
-  # Merge worker aggregates into a single file for this row.
+  if [ "$fail" -ne 0 ]; then
+    echo "One or more workers failed for run_id=$run_id; skipping aggregation."
+    continue
+  fi
+
+  echo "[$(date)] starting aggregation for run_id=$run_id"
   "$UV_PROJECT_ENVIRONMENT/bin/python" -u -X faulthandler scripts/run_bulk_parallel.py aggregate \
     --output-dir "$OUTPUT_DIR" \
     --run-id "$run_id"
+  echo "[$(date)] finished aggregation for run_id=$run_id"
 
   end_ts=$(date +%s)
   echo "Finished row $row in $((end_ts - start_ts))s"
