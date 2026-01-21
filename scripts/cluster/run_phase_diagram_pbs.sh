@@ -6,7 +6,7 @@
 
 # --- NEW: request 1 node with max cores on medium ---
 #PBS -l nodes=1:ppn=8
-#PBS -l mem=8gb
+#PBS -l mem=4gb
 
 set -euo pipefail
 cd "${PBS_O_WORKDIR:?PBS_O_WORKDIR is not set}"
