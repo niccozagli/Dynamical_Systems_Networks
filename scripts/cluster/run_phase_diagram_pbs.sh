@@ -25,7 +25,7 @@ echo
 
 # Parameters passed via qsub -v
 ARGS="${ARGS:-}"
-: "${ARGS:?Set ARGS via qsub -v, e.g. ARGS=\"configs/foo.json params/sweep.tsv results/out 5 3 10 123\"}"
+: "${ARGS:?Set ARGS via qsub -v, e.g. ARGS=\"--config configs/foo.json --table params/sweep.tsv --output-dir results/out --graph-realizations 5 --noise-realizations 3 --flush-every 10 --base-seed 123\"}"
 echo "ARGS: $ARGS"
 echo
 
@@ -62,21 +62,63 @@ echo
 
 # ---- Phase diagram runner ----
 # Usage:
-#   qsub -v ARGS="CONFIG TABLE OUTPUT_DIR GRAPH_REALIZATIONS NOISE_REALIZATIONS FLUSH_EVERY [BASE_SEED]" run_phase_diagram.pbs
-# Note: WORKERS is taken from PBS_NUM_PPN (ppn=8), i.e. max workers on one node.
+#   qsub -v ARGS="--config CONFIG --table TABLE --output-dir OUT \
+#     --graph-realizations N --noise-realizations N --flush-every N [--base-seed N] [--workers N]" \
+#     scripts/cluster/run_phase_diagram_pbs.sh
+# Note: WORKERS defaults to allocated cores on one node.
 
-read -r -a ARGS_ARR <<< "$ARGS"
-CONFIG_PATH="${ARGS_ARR[0]:-configs/config_Kuramoto_ER.json}"
-TABLE_PATH="${ARGS_ARR[1]:-params/sweep_theta_Kuramoto_ER.tsv}"
-OUTPUT_DIR="${ARGS_ARR[2]:-results/sweep_theta_Kuramoto_ER_local}"
-GRAPH_REALIZATIONS="${ARGS_ARR[3]:-5}"
-NOISE_REALIZATIONS="${ARGS_ARR[4]:-3}"
-FLUSH_EVERY="${ARGS_ARR[5]:-10}"
-BASE_SEED="${ARGS_ARR[6]:-}"
+CONFIG_PATH="configs/config_Kuramoto_ER.json"
+TABLE_PATH="params/sweep_theta_Kuramoto_ER.tsv"
+OUTPUT_DIR="results/sweep_theta_Kuramoto_ER_local"
+GRAPH_REALIZATIONS="5"
+NOISE_REALIZATIONS="3"
+FLUSH_EVERY="10"
+BASE_SEED=""
+WORKERS="${PBS_NUM_PPN:-${PBS_NP:-8}}"
 
-# --- NEW: max workers = allocated cores on this node ---
-WORKERS="${PBS_NUM_PPN:-8}"
-echo "Allocated cores (PBS_NUM_PPN) = ${PBS_NUM_PPN:-unknown}; using WORKERS=$WORKERS"
+set -- $ARGS
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --config)
+      CONFIG_PATH="$2"
+      shift 2
+      ;;
+    --table)
+      TABLE_PATH="$2"
+      shift 2
+      ;;
+    --output-dir)
+      OUTPUT_DIR="$2"
+      shift 2
+      ;;
+    --graph-realizations)
+      GRAPH_REALIZATIONS="$2"
+      shift 2
+      ;;
+    --noise-realizations)
+      NOISE_REALIZATIONS="$2"
+      shift 2
+      ;;
+    --flush-every)
+      FLUSH_EVERY="$2"
+      shift 2
+      ;;
+    --base-seed)
+      BASE_SEED="$2"
+      shift 2
+      ;;
+    --workers)
+      WORKERS="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 2
+      ;;
+  esac
+done
+
+echo "Allocated cores (PBS_NUM_PPN/PBS_NP) = ${PBS_NUM_PPN:-${PBS_NP:-unknown}}; using WORKERS=$WORKERS"
 echo
 
 # --- NEW: make output job-unique to avoid collisions across multiple PBS jobs ---
