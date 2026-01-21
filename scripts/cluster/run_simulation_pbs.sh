@@ -32,6 +32,9 @@ export MKL_NUM_THREADS=1
 export NUMEXPR_NUM_THREADS=1
 export VECLIB_MAXIMUM_THREADS=1
 
+#  Disable HDF5 locking on network FS otherwise cluster hangs
+export HDF5_USE_FILE_LOCKING=FALSE
+
 # Local disk for uv cache, temp, and venv
 export UV_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/uv-cache.XXXXXX")"
 export TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/uv-tmp.XXXXXX")"
