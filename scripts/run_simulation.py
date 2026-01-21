@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+
+import faulthandler, sys
+faulthandler.enable()
+faulthandler.dump_traceback_later(30, repeat=True, file=sys.stderr)
+
+print("Entered run_simulation.py", flush=True)
 import copy
 import json
 from pathlib import Path
