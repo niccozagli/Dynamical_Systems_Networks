@@ -24,6 +24,8 @@ echo "Workdir: $PBS_O_WORKDIR"
 echo
 
 # Parameters passed via qsub -v
+# Example:
+#   qsub -e trash -o trash -v ARGS="--config configs/config_double_well_configuration_model_poisson.json --table params/sweep_theta_double_well_configuration_model_poisson.tsv --output-dir results/phase_diagram_double_well --graph-realizations 10 --noise-realizations 5 --flush-every 5" scripts/cluster/run_phase_diagram_pbs.sh
 ARGS="${ARGS:-}"
 : "${ARGS:?Set ARGS via qsub -v, e.g. ARGS=\"--config configs/foo.json --table params/sweep.tsv --output-dir results/out --graph-realizations 5 --noise-realizations 3 --flush-every 10 --base-seed 123\"}"
 echo "ARGS: $ARGS"
