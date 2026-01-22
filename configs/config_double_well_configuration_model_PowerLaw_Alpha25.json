@@ -28,7 +28,7 @@
   },
   "integrator": {
     "tmin": 0.0,
-    "tmax": 20000.0,
+    "tmax": 100000.0,
     "dt": 0.01,
     "stats_every": 100,
     "state_every": 1000,
