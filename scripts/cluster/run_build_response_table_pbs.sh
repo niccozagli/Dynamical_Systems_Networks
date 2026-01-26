@@ -25,9 +25,7 @@ echo
 # Example:
 #   qsub -e trash -o trash -v ARGS="--unperturbed-root results/lr_unperturbed/job_XXXX \
 #   --output-dir params \
-#   --transient 5000 \
-#   --integrator-tmin 0 --integrator-tmax 200 --integrator-dt 0.01 \
-#   --stats-every 10 --state-every 100" scripts/cluster/run_build_response_table_pbs.sh
+#   --transient 5000" scripts/cluster/run_build_response_table_pbs.sh
 ARGS="${ARGS:-}"
 : "${ARGS:?Set ARGS via qsub -v, e.g. ARGS=\"--unperturbed-root results/... --output params/... --transient 5000\"}"
 echo "ARGS: $ARGS"

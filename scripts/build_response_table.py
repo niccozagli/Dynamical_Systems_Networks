@@ -28,7 +28,6 @@ def build_table(
     unperturbed_root: Path,
     output_path: Path,
     transient: float,
-    overrides: dict[str, object] | None,
 ) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
@@ -38,9 +37,6 @@ def build_table(
         "t",
         "network.params.seed",
     ]
-    if overrides:
-        fieldnames.extend(overrides.keys())
-
     count = 0
     with output_path.open("w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter="\t")
@@ -65,8 +61,6 @@ def build_table(
                         "t": t_val,
                         "network.params.seed": seed if seed is not None else "",
                     }
-                    if overrides:
-                        row.update(overrides)
                     writer.writerow(row)
                     count += 1
 
@@ -98,36 +92,6 @@ def main() -> None:
         default=0.0,
         help="Transient cutoff (keep t >= transient)",
     )
-    parser.add_argument(
-        "--integrator-tmin",
-        type=float,
-        default=None,
-        help="Override integrator.tmin in the response runs",
-    )
-    parser.add_argument(
-        "--integrator-tmax",
-        type=float,
-        default=None,
-        help="Override integrator.tmax in the response runs",
-    )
-    parser.add_argument(
-        "--integrator-dt",
-        type=float,
-        default=None,
-        help="Override integrator.dt in the response runs",
-    )
-    parser.add_argument(
-        "--stats-every",
-        type=int,
-        default=None,
-        help="Override integrator.stats_every in the response runs",
-    )
-    parser.add_argument(
-        "--state-every",
-        type=int,
-        default=None,
-        help="Override integrator.state_every in the response runs",
-    )
 
     args = parser.parse_args()
     root = Path(args.unperturbed_root)
@@ -140,18 +104,7 @@ def main() -> None:
     else:
         output = Path(args.output_dir) / "response_samples.tsv"
 
-    overrides: dict[str, object] = {}
-    if args.integrator_tmin is not None:
-        overrides["integrator.tmin"] = float(args.integrator_tmin)
-    if args.integrator_tmax is not None:
-        overrides["integrator.tmax"] = float(args.integrator_tmax)
-    if args.integrator_dt is not None:
-        overrides["integrator.dt"] = float(args.integrator_dt)
-    if args.stats_every is not None:
-        overrides["integrator.stats_every"] = int(args.stats_every)
-    if args.state_every is not None:
-        overrides["integrator.state_every"] = int(args.state_every)
-    count = build_table(root, output, float(args.transient), overrides or None)
+    count = build_table(root, output, float(args.transient))
     print(f"Wrote {count} rows to {output}")
 
 
