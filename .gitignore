@@ -28,3 +28,6 @@ wheels/
 # Allow committed config and sweep tables
 !configs/*.json
 !params/*.tsv
+
+!configs/linear_response/*.json
+!params/linear_response/*.tsv
