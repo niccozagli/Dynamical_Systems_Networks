@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -N build_response_table
-#PBS -q standard
+#PBS -q medium
 #PBS -m be
 #PBS -j oe
 #PBS -l nodes=1:ppn=1
