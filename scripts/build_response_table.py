@@ -6,6 +6,7 @@ from pathlib import Path
 import h5py
 from typing import cast
 import json
+import time
 
 
 def read_network_seed(run_dir: Path) -> int | None:
@@ -28,6 +29,7 @@ def build_table(
     unperturbed_root: Path,
     output_path: Path,
     transient: float,
+    log_every: int,
 ) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
@@ -39,6 +41,7 @@ def build_table(
         "network.params.seed",
     ]
     count = 0
+    last_log = time.perf_counter()
     with output_path.open("w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter="\t")
         writer.writeheader()
@@ -65,6 +68,11 @@ def build_table(
                     }
                     writer.writerow(row)
                     count += 1
+                    if log_every > 0 and count % log_every == 0:
+                        now = time.perf_counter()
+                        rate = log_every / max(1e-9, now - last_log)
+                        print(f"Wrote {count} rows ({rate:.1f} rows/s)", flush=True)
+                        last_log = now
 
     return count
 
@@ -94,6 +102,12 @@ def main() -> None:
         default=0.0,
         help="Transient cutoff (keep t >= transient)",
     )
+    parser.add_argument(
+        "--log-every",
+        type=int,
+        default=100000,
+        help="Print progress every N rows (0 disables).",
+    )
 
     args = parser.parse_args()
     root = Path(args.unperturbed_root)
@@ -106,7 +120,7 @@ def main() -> None:
     else:
         output = Path(args.output_dir) / "response_samples.tsv"
 
-    count = build_table(root, output, float(args.transient))
+    count = build_table(root, output, float(args.transient), int(args.log_every))
     print(f"Wrote {count} rows to {output}")
 
 
