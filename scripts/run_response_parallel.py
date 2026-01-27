@@ -8,6 +8,7 @@ from typing import Annotated, cast
 import h5py
 import numpy as np
 import typer
+import time
 
 from dataclasses import dataclass
 
@@ -115,6 +116,8 @@ class ResponseWorkerFile:
     mean_minus: h5py.Dataset
     m2_minus: h5py.Dataset
     count_minus: h5py.Dataset
+    run_ids: h5py.Dataset
+    run_counts: h5py.Dataset
 
 
 def _init_response_worker(path: Path, fieldnames: list[str], n_rows: int) -> ResponseWorkerFile:
@@ -122,6 +125,7 @@ def _init_response_worker(path: Path, fieldnames: list[str], n_rows: int) -> Res
     fh = h5py.File(path, "w", libver="latest")
     n_fields = len(fieldnames)
     chunk_rows = max(1, min(1024, n_rows))
+    str_dtype = h5py.string_dtype(encoding="utf-8")
     mean_plus = fh.create_dataset(
         "mean_plus",
         shape=(n_rows, n_fields),
@@ -160,6 +164,24 @@ def _init_response_worker(path: Path, fieldnames: list[str], n_rows: int) -> Res
         compression_opts=4,
     )
     count_minus = fh.create_dataset("count_minus", shape=(), dtype=np.int64)
+    run_ids = fh.create_dataset(
+        "run_ids",
+        shape=(0,),
+        maxshape=(None,),
+        chunks=(1024,),
+        dtype=str_dtype,
+        compression="gzip",
+        compression_opts=4,
+    )
+    run_counts = fh.create_dataset(
+        "run_counts",
+        shape=(0,),
+        maxshape=(None,),
+        chunks=(1024,),
+        dtype=np.int64,
+        compression="gzip",
+        compression_opts=4,
+    )
     fh.attrs["fieldnames"] = np.asarray(fieldnames, dtype="S")
     fh.swmr_mode = True
     fh.flush()
@@ -171,10 +193,33 @@ def _init_response_worker(path: Path, fieldnames: list[str], n_rows: int) -> Res
         mean_minus=mean_minus,
         m2_minus=m2_minus,
         count_minus=count_minus,
+        run_ids=run_ids,
+        run_counts=run_counts,
     )
 
 
-def _flush_response_worker(worker: ResponseWorkerFile, plus: AggregateState, minus: AggregateState) -> None:
+def _write_run_counts(worker: ResponseWorkerFile, run_counts: dict[str, int]) -> None:
+    if not run_counts:
+        worker.run_ids.resize((0,))
+        worker.run_counts.resize((0,))
+        return
+    run_ids = sorted(run_counts)
+    counts = np.asarray([int(run_counts[r]) for r in run_ids], dtype=np.int64)
+    worker.run_ids.resize((len(run_ids),))
+    worker.run_counts.resize((len(run_ids),))
+    worker.run_ids[...] = np.asarray(run_ids, dtype=worker.run_ids.dtype)
+    worker.run_counts[...] = counts
+
+
+def _flush_response_worker(
+    worker: ResponseWorkerFile,
+    plus: AggregateState,
+    minus: AggregateState,
+    run_counts: dict[str, int],
+    *,
+    runs_done: int,
+    worker_start: float,
+) -> None:
     if plus.mean is None or plus.m2 is None:
         worker.mean_plus[...] = 0.0
         worker.m2_plus[...] = 0.0
@@ -191,6 +236,13 @@ def _flush_response_worker(worker: ResponseWorkerFile, plus: AggregateState, min
         worker.mean_minus[...] = minus.mean
         worker.m2_minus[...] = minus.m2
         worker.count_minus[...] = int(minus.count)
+    _write_run_counts(worker, run_counts)
+    worker.fh.attrs["graph_count"] = int(len(run_counts))
+    worker.fh.attrs["sample_count"] = int(sum(run_counts.values()))
+    elapsed = time.perf_counter() - worker_start
+    worker.fh.attrs["worker_time_s"] = float(elapsed)
+    worker.fh.attrs["runs_done"] = int(runs_done)
+    worker.fh.attrs["runs_per_s"] = float(runs_done / elapsed) if elapsed > 0 else 0.0
     worker.fh.flush()
 
 
@@ -231,6 +283,8 @@ def worker(
     n_rows = None
     stats_fields = None
     worker_file: ResponseWorkerFile | None = None
+    run_counts: dict[str, int] = {}
+    worker_start = time.perf_counter()
 
     for row_index, row in _parse_table(table_path):
         if (row_index - 1) % num_workers != worker_id:
@@ -277,19 +331,32 @@ def worker(
             worker_file.fh.attrs["worker_id"] = int(worker_id)
             worker_file.fh.attrs["num_workers"] = int(num_workers)
             worker_file.fh.attrs["flush_every"] = int(flush_every)
+            worker_file.fh.attrs["perturbation_type"] = str(perturb_name)
+            worker_file.fh.attrs["perturbation_epsilon"] = float(eps)
             if base_seed is not None:
                 worker_file.fh.attrs["base_seed"] = int(base_seed)
             worker_file.fh.flush()
 
         runs_since_flush += 1
         runs_done += 1
+        run_id = (row.get("run_id") or "").strip()
+        if not run_id:
+            raise ValueError("Response table row is missing run_id.")
+        run_counts[run_id] = run_counts.get(run_id, 0) + 1
         if runs_done % log_every == 0:
             print(
                 f"worker {worker_id}: processed {runs_done} runs (table row {row_index})",
                 flush=True,
             )
         if runs_since_flush >= flush_every:
-            _flush_response_worker(worker_file, state_plus, state_minus)
+            _flush_response_worker(
+                worker_file,
+                state_plus,
+                state_minus,
+                run_counts,
+                runs_done=runs_done,
+                worker_start=worker_start,
+            )
             runs_since_flush = 0
 
     if worker_file is None:
@@ -302,7 +369,14 @@ def worker(
         if base_seed is not None:
             worker_file.fh.attrs["base_seed"] = int(base_seed)
 
-    _flush_response_worker(worker_file, state_plus, state_minus)
+    _flush_response_worker(
+        worker_file,
+        state_plus,
+        state_minus,
+        run_counts,
+        runs_done=runs_done,
+        worker_start=worker_start,
+    )
     worker_file.fh.close()
 
 
@@ -319,6 +393,11 @@ def aggregate(
     state_plus = AggregateState()
     state_minus = AggregateState()
     fieldnames = None
+    graph_counts: dict[str, int] = {}
+    total_worker_time_s = 0.0
+    total_runs_done = 0
+    epsilon_ref: float | None = None
+    perturbation_type_ref: str | None = None
 
     for path in worker_paths:
         with h5py.File(path, "r", libver="latest", swmr=True) as fh:
@@ -339,6 +418,33 @@ def aggregate(
             count_m = int(cast(h5py.Dataset, fh["count_minus"])[()])
             state_minus = merge_aggregate(state_minus, mean_m, m2_m, count_m)
 
+            if "run_ids" in fh and "run_counts" in fh:
+                run_ids = np.asarray(cast(h5py.Dataset, fh["run_ids"])[...])
+                run_counts = np.asarray(cast(h5py.Dataset, fh["run_counts"])[...])
+                for rid, cnt in zip(run_ids.tolist(), run_counts.tolist()):
+                    key = str(rid)
+                    graph_counts[key] = graph_counts.get(key, 0) + int(cnt)
+            eps = fh.attrs.get("perturbation_epsilon")
+            if eps is not None:
+                eps_val = float(eps)
+                if epsilon_ref is None:
+                    epsilon_ref = eps_val
+                elif abs(epsilon_ref - eps_val) > 0.0:
+                    raise ValueError(
+                        f"Mismatched perturbation_epsilon across workers: {epsilon_ref} vs {eps_val}"
+                    )
+            ptype = fh.attrs.get("perturbation_type")
+            if ptype is not None:
+                ptype_val = str(ptype)
+                if perturbation_type_ref is None:
+                    perturbation_type_ref = ptype_val
+                elif perturbation_type_ref != ptype_val:
+                    raise ValueError(
+                        f"Mismatched perturbation_type across workers: {perturbation_type_ref} vs {ptype_val}"
+                    )
+            total_worker_time_s += float(fh.attrs.get("worker_time_s", 0.0))
+            total_runs_done += int(fh.attrs.get("runs_done", 0))
+
     if state_plus.mean is None or state_minus.mean is None:
         raise ValueError("No completed worker stats found to aggregate.")
     if state_plus.m2 is None or state_minus.m2 is None:
@@ -357,6 +463,26 @@ def aggregate(
         fh.create_dataset("mean_minus", data=state_minus.mean, compression="gzip", compression_opts=4)
         fh.create_dataset("std_minus", data=std_minus, compression="gzip", compression_opts=4)
         fh.create_dataset("count_minus", data=int(state_minus.count))
+        if graph_counts:
+            run_ids = sorted(graph_counts)
+            counts = np.asarray([graph_counts[r] for r in run_ids], dtype=np.int64)
+            fh.create_dataset(
+                "run_ids",
+                data=np.asarray(run_ids, dtype=h5py.string_dtype(encoding="utf-8")),
+                compression="gzip",
+                compression_opts=4,
+            )
+            fh.create_dataset("run_counts", data=counts, compression="gzip", compression_opts=4)
+        sample_count = int(sum(graph_counts.values())) if graph_counts else int(state_plus.count)
+        fh.attrs["graph_count"] = int(len(graph_counts))
+        fh.attrs["sample_count"] = sample_count
+        if perturbation_type_ref is not None:
+            fh.attrs["perturbation_type"] = perturbation_type_ref
+        if epsilon_ref is not None:
+            fh.attrs["perturbation_epsilon"] = float(epsilon_ref)
+        fh.attrs["worker_time_s"] = float(total_worker_time_s)
+        fh.attrs["runs_done"] = int(total_runs_done)
+        fh.attrs["runs_per_s"] = float(total_runs_done / total_worker_time_s) if total_worker_time_s > 0 else 0.0
         fh.attrs["fieldnames"] = np.asarray(fieldnames, dtype="S")
         fh.flush()
 

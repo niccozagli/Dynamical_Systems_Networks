@@ -19,10 +19,22 @@ echo "JobID: ${PBS_JOBID:-n/a}"
 echo "Workdir: $PBS_O_WORKDIR"
 echo
 
-# Parameters passed via qsub -v
+# Parameters can be passed either via qsub -v ARGS="..." or directly as CLI flags.
+# Example (qsub):
+#   qsub -e trash -o trash -v ARGS="--config configs/foo.json --output-dir results/out --run-id test" scripts/cluster/run_simulation_pbs.sh
+# Example (direct flags):
+#   qsub -e trash -o trash scripts/cluster/run_simulation_pbs.sh --config configs/foo.json --output-dir results/out --run-id test
 ARGS="${ARGS:-}"
-: "${ARGS:?Set ARGS via qsub -v, e.g. ARGS=\"--config params/foo.json --seed 123\"}"
-echo "ARGS: $ARGS"
+if [ "$#" -gt 0 ]; then
+  argv=("$@")
+  echo "CLI ARGS: ${argv[*]}"
+elif [ -n "$ARGS" ]; then
+  read -r -a argv <<< "$ARGS"
+  echo "ENV ARGS: $ARGS"
+else
+  echo "No arguments provided. Pass flags directly or via ARGS=..."
+  exit 2
+fi
 echo
 
 # Keep numerical libs single-threaded (standard queue = 1 core)
@@ -59,7 +71,7 @@ echo
 echo "[$(date)] launching simulation"
 # -u: unbuffered stdout/stderr (so logs appear immediately)
 # -X faulthandler: enables faulthandler (add dump_traceback_later in Python for periodic traces)
-"$UV_PROJECT_ENVIRONMENT/bin/python" -u -X faulthandler scripts/run_simulation.py $ARGS
+"$UV_PROJECT_ENVIRONMENT/bin/python" -u -X faulthandler scripts/run_simulation.py "${argv[@]}"
 echo "[$(date)] simulation finished"
 
 echo "=== END $(date) ==="

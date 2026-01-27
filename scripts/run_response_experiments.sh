@@ -2,16 +2,37 @@
 set -euo pipefail
 
 # Usage:
-#   ./scripts/run_response_experiments.sh CONFIG_PATH TABLE_PATH OUTPUT_DIR NUM_WORKERS [FLUSH_EVERY]
+#   ./scripts/run_response_experiments.sh --config <path> --table <path> --output-dir <dir> --workers <n> [--flush-every <n>]
 #
 # Example:
-#   ./scripts/run_response_experiments.sh configs/config_lr.json results/response_samples.tsv results/response 4 20
+#   ./scripts/run_response_experiments.sh \
+#     --config configs/config_lr.json \
+#     --table results/response_samples.tsv \
+#     --output-dir results/response \
+#     --workers 4 \
+#     --flush-every 20
 
-CONFIG_PATH="${1:?config path required}"
-TABLE_PATH="${2:?table path required}"
-OUTPUT_DIR="${3:?output dir required}"
-NUM_WORKERS="${4:?num workers required}"
-FLUSH_EVERY="${5:-10}"
+CONFIG_PATH=""
+TABLE_PATH=""
+OUTPUT_DIR=""
+NUM_WORKERS=""
+FLUSH_EVERY="10"
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --config)     CONFIG_PATH="$2"; shift 2;;
+    --table)      TABLE_PATH="$2"; shift 2;;
+    --output-dir) OUTPUT_DIR="$2"; shift 2;;
+    --workers)    NUM_WORKERS="$2"; shift 2;;
+    --flush-every) FLUSH_EVERY="$2"; shift 2;;
+    *) echo "Unknown argument: $1"; exit 2;;
+  esac
+done
+
+: "${CONFIG_PATH:?--config is required}"
+: "${TABLE_PATH:?--table is required}"
+: "${OUTPUT_DIR:?--output-dir is required}"
+: "${NUM_WORKERS:?--workers is required}"
 
 if [ "$NUM_WORKERS" -le 0 ]; then
   echo "NUM_WORKERS must be >= 1"

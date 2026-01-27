@@ -21,16 +21,26 @@ echo "JobID: ${PBS_JOBID:-n/a}"
 echo "Workdir: $PBS_O_WORKDIR"
 echo
 
-# Parameters passed via qsub -v
-# Example:
+# Parameters can be passed either via qsub -v ARGS="..." or directly as CLI flags.
+# Example (qsub):
 #   qsub -e trash -o trash -v ARGS="--config configs/config_lr.json \
 #   --table params/response_samples.tsv \
 #   --output-dir results/response \
 #   --workers 8 \
 #   --flush-every 10" scripts/cluster/run_response_experiments_pbs.sh
+# Example (direct flags):
+#   qsub -e trash -o trash scripts/cluster/run_response_experiments_pbs.sh --config ... --table ... --output-dir ... --workers 8
 ARGS="${ARGS:-}"
-: "${ARGS:?Set ARGS via qsub -v, e.g. ARGS=\"--config configs/foo.json --table params/response.tsv --output-dir results/out --workers 8 --flush-every 10\"}"
-echo "ARGS: $ARGS"
+if [ "$#" -gt 0 ]; then
+  argv=("$@")
+  echo "CLI ARGS: ${argv[*]}"
+elif [ -n "$ARGS" ]; then
+  read -r -a argv <<< "$ARGS"
+  echo "ENV ARGS: $ARGS"
+else
+  echo "No arguments provided. Pass flags directly or via ARGS=..."
+  exit 2
+fi
 echo
 
 # Keep numerical libs single-threaded (process-level parallelism)
@@ -71,7 +81,6 @@ OUTPUT_DIR="results/response"
 FLUSH_EVERY="10"
 WORKERS="${PBS_NUM_PPN:-${PBS_NP:-8}}"
 
-read -r -a argv <<< "$ARGS"
 set -- "${argv[@]}"
 
 while [ "$#" -gt 0 ]; do

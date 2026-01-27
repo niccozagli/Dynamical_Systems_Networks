@@ -24,6 +24,7 @@ wheels/
 *.mp4
 *.h5
 *.tsv
+*.txt
 
 # Allow committed config and sweep tables
 !configs/**/*.json

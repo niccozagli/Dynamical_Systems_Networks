@@ -2,15 +2,34 @@
 set -euo pipefail
 
 # Usage:
-#   ./scripts/run_linear_response_unperturbed_experiments.sh CONFIG_PATH TABLE_PATH OUTPUT_DIR NUM_WORKERS
+#   ./scripts/run_linear_response_unperturbed_experiments.sh --config <path> --table <path> --output-dir <dir> --workers <n>
 #
-# Example (3 workers):
-#   ./scripts/run_linear_response_unperturbed_experiments.sh configs/linear_response/config_lr.json params/linear_response/lr_seeds.tsv results/lr 3
+# Example:
+#   ./scripts/run_linear_response_unperturbed_experiments.sh \
+#     --config configs/linear_response/config_lr.json \
+#     --table params/linear_response/lr_seeds.tsv \
+#     --output-dir results/lr \
+#     --workers 3
 
-CONFIG_PATH="${1:?config path required}"
-TABLE_PATH="${2:?table path required}"
-OUTPUT_DIR="${3:?output dir required}"
-NUM_WORKERS="${4:?num workers required}"
+CONFIG_PATH=""
+TABLE_PATH=""
+OUTPUT_DIR=""
+NUM_WORKERS=""
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --config)     CONFIG_PATH="$2"; shift 2;;
+    --table)      TABLE_PATH="$2"; shift 2;;
+    --output-dir) OUTPUT_DIR="$2"; shift 2;;
+    --workers)    NUM_WORKERS="$2"; shift 2;;
+    *) echo "Unknown argument: $1"; exit 2;;
+  esac
+done
+
+: "${CONFIG_PATH:?--config is required}"
+: "${TABLE_PATH:?--table is required}"
+: "${OUTPUT_DIR:?--output-dir is required}"
+: "${NUM_WORKERS:?--workers is required}"
 
 if [ "$NUM_WORKERS" -le 0 ]; then
   echo "NUM_WORKERS must be >= 1"

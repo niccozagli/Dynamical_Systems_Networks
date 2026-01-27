@@ -31,6 +31,7 @@ def build_table(
 ) -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
+        "sample_id",
         "run_id",
         "state_path",
         "time_index",
@@ -55,6 +56,7 @@ def build_table(
                     if t_val < transient:
                         continue
                     row = {
+                        "sample_id": f"{run_id}:{int(idx)}",
                         "run_id": run_id,
                         "state_path": str(state_path),
                         "time_index": int(idx),

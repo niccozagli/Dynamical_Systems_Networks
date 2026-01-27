@@ -21,14 +21,24 @@ echo "JobID: ${PBS_JOBID:-n/a}"
 echo "Workdir: $PBS_O_WORKDIR"
 echo
 
-# Parameters passed via qsub -v
-# Example:
+# Parameters can be passed either via qsub -v ARGS="..." or directly as CLI flags.
+# Example (qsub):
 #   qsub -e trash -o trash -v ARGS="--unperturbed-root results/lr_unperturbed/job_XXXX \
 #   --output-dir params \
 #   --transient 5000" scripts/cluster/run_build_response_table_pbs.sh
+# Example (direct flags):
+#   qsub -e trash -o trash scripts/cluster/run_build_response_table_pbs.sh --unperturbed-root ... --output-dir ... --transient 5000
 ARGS="${ARGS:-}"
-: "${ARGS:?Set ARGS via qsub -v, e.g. ARGS=\"--unperturbed-root results/... --output params/... --transient 5000\"}"
-echo "ARGS: $ARGS"
+if [ "$#" -gt 0 ]; then
+  argv=("$@")
+  echo "CLI ARGS: ${argv[*]}"
+elif [ -n "$ARGS" ]; then
+  read -r -a argv <<< "$ARGS"
+  echo "ENV ARGS: $ARGS"
+else
+  echo "No arguments provided. Pass flags directly or via ARGS=..."
+  exit 2
+fi
 echo
 
 # Keep numerical libs single-threaded
@@ -62,7 +72,6 @@ uv sync --frozen --no-progress
 echo "[$(date)] finished uv sync"
 echo
 
-read -r -a argv <<< "$ARGS"
 set -- "${argv[@]}"
 
 "$UV_PROJECT_ENVIRONMENT/bin/python" -u -X faulthandler scripts/build_response_table.py "$@"

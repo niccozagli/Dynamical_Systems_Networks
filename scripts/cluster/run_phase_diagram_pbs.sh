@@ -23,17 +23,27 @@ echo "JobID: ${PBS_JOBID:-n/a}"
 echo "Workdir: $PBS_O_WORKDIR"
 echo
 
-# Parameters passed via qsub -v
-# Example:
+# Parameters can be passed either via qsub -v ARGS="..." or directly as CLI flags.
+# Example (qsub):
 #   qsub -e trash -o trash -v ARGS="--config configs/config_double_well_configuration_model_poisson.json \
 #   --table params/sweep_theta_double_well_configuration_model_poisson.tsv \
 #   --output-dir results/phase_diagram_double_well \
 #   --graph-realizations 10 \
 #   --noise-realizations 5 \
 #   --flush-every 5" scripts/cluster/run_phase_diagram_pbs.sh
+# Example (direct flags):
+#   qsub -e trash -o trash scripts/cluster/run_phase_diagram_pbs.sh --config ... --table ... --output-dir ... --graph-realizations 10 --noise-realizations 5 --flush-every 5
 ARGS="${ARGS:-}"
-: "${ARGS:?Set ARGS via qsub -v, e.g. ARGS=\"--config configs/foo.json --table params/sweep.tsv --output-dir results/out --graph-realizations 5 --noise-realizations 3 --flush-every 10 --base-seed 123\"}"
-echo "ARGS: $ARGS"
+if [ "$#" -gt 0 ]; then
+  argv=("$@")
+  echo "CLI ARGS: ${argv[*]}"
+elif [ -n "$ARGS" ]; then
+  read -r -a argv <<< "$ARGS"
+  echo "ENV ARGS: $ARGS"
+else
+  echo "No arguments provided. Pass flags directly or via ARGS=..."
+  exit 2
+fi
 echo
 
 # Keep numerical libs single-threaded (we do process-level parallelism via WORKERS)
@@ -77,8 +87,6 @@ FLUSH_EVERY="10"
 BASE_SEED=""
 WORKERS="${PBS_NUM_PPN:-${PBS_NP:-8}}"
 
-# Safer tokenization than `set -- $ARGS`
-read -r -a argv <<< "$ARGS"
 set -- "${argv[@]}"
 
 while [ "$#" -gt 0 ]; do
