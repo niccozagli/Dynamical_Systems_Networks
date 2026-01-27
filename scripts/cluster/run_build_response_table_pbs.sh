@@ -1,8 +1,10 @@
 #!/bin/bash
-#PBS -N run_simulation
-#PBS -q standard
+#PBS -N build_response_table
+#PBS -q short
 #PBS -m be
 #PBS -j oe
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=2gb
 
 set -euo pipefail
 cd "${PBS_O_WORKDIR:?PBS_O_WORKDIR is not set}"
@@ -21,9 +23,11 @@ echo
 
 # Parameters can be passed either via qsub -v ARGS="..." or directly as CLI flags.
 # Example (qsub):
-#   qsub -e trash -o trash -v ARGS="--config configs/foo.json --output-dir results/out --run-id test" scripts/cluster/run_simulation_pbs.sh
+#   qsub -e trash -o trash -v ARGS="--unperturbed-root results/lr_unperturbed/job_XXXX \
+#   --output-dir params \
+#   --transient 5000" scripts/cluster/run_build_response_table_pbs.sh
 # Example (direct flags):
-#   qsub -e trash -o trash scripts/cluster/run_simulation_pbs.sh --config configs/foo.json --output-dir results/out --run-id test
+#   qsub -e trash -o trash scripts/cluster/run_build_response_table_pbs.sh --unperturbed-root ... --output-dir ... --transient 5000
 ARGS="${ARGS:-}"
 if [ "$#" -gt 0 ]; then
   argv=("$@")
@@ -37,14 +41,14 @@ else
 fi
 echo
 
-# Keep numerical libs single-threaded (standard queue = 1 core)
+# Keep numerical libs single-threaded
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export NUMEXPR_NUM_THREADS=1
 export VECLIB_MAXIMUM_THREADS=1
 
-#  Disable HDF5 locking on network FS otherwise cluster hangs
+# Disable HDF5 locking on network FS
 export HDF5_USE_FILE_LOCKING=FALSE
 
 # Local disk for uv cache, temp, and venv
@@ -68,10 +72,8 @@ uv sync --frozen --no-progress
 echo "[$(date)] finished uv sync"
 echo
 
-echo "[$(date)] launching simulation"
-# -u: unbuffered stdout/stderr (so logs appear immediately)
-# -X faulthandler: enables faulthandler (add dump_traceback_later in Python for periodic traces)
-"$UV_PROJECT_ENVIRONMENT/bin/python" -u -X faulthandler scripts/run_simulation.py "${argv[@]}"
-echo "[$(date)] simulation finished"
+set -- "${argv[@]}"
+
+"$UV_PROJECT_ENVIRONMENT/bin/python" -u -X faulthandler scripts/build_response_table.py "$@"
 
 echo "=== END $(date) ==="
