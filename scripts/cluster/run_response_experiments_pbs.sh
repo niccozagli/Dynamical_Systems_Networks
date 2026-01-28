@@ -4,7 +4,7 @@
 #PBS -m be
 #PBS -j oe
 #PBS -l nodes=1:ppn=8
-#PBS -l mem=4gb
+#PBS -l mem=6gb
 
 set -euo pipefail
 cd "${PBS_O_WORKDIR:?PBS_O_WORKDIR is not set}"
