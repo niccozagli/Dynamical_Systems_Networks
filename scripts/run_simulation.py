@@ -79,6 +79,9 @@ def _run_single(
     stats_path = run_dir / "stats.h5"
     state_path = run_dir / "state.h5"
 
+    # Persist config immediately so it exists even if the run is interrupted.
+    (run_dir / "config_used.json").write_text(json.dumps(config_data, indent=2))
+
     stats_writer = open_stats_writer(stats_path, fieldnames=stats_fields)
     state_writer = open_state_writer(state_path, dim=len(x0))
 
@@ -101,7 +104,6 @@ def _run_single(
         close_state_writer(state_writer)
 
     (run_dir / "timings.json").write_text(json.dumps(timings, indent=2))
-    (run_dir / "config_used.json").write_text(json.dumps(config_data, indent=2))
 
 
 @app.command()
