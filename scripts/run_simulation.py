@@ -19,7 +19,6 @@ from dyn_net.utils.simulation_steps import (
 )
 from dyn_net.utils.state import open_state_writer, close_state_writer
 from dyn_net.utils.stats import open_stats_writer, close_stats_writer
-from dyn_net.utils.table_overrides import apply_overrides, load_table_row
 
 
 app = typer.Typer(add_completion=False)
@@ -29,22 +28,8 @@ def _run_single(
     config_data: dict,
     output_dir: str,
     run_id: str,
-    *,
-    params_table: str | None = None,
-    row_index: int | None = None,
 ) -> None:
     config_data = copy.deepcopy(config_data)
-    # Optionally apply a row-based override table for sweeps/array jobs.
-    row_run_id = None
-    if params_table:
-        if row_index is None:
-            raise ValueError("--row-index is required with --params-table")
-        row = load_table_row(Path(params_table), row_index)
-        row_run_id = row.get("run_id")
-        apply_overrides(config_data, row)
-        table_applied = True
-    else:
-        table_applied = False
 
     # Ensure reproducible seeds are recorded. If not provided, draw from OS entropy.
     net_params = config_data.setdefault("network", {}).setdefault("params", {})
@@ -68,12 +53,6 @@ def _run_single(
     state_transform = prepare_state_transform(config_data["system"]["name"])
 
     # Prepare output writers.
-    # In sweeps, prefer the CLI run_id when explicitly provided (e.g., row/rep suffixes).
-    # Fall back to table run_id only when the CLI default is used.
-    if table_applied and row_run_id and run_id == "run_local":
-        run_id = row_run_id
-    elif (not table_applied) and ("run_id" in config_data):
-        run_id = config_data["run_id"]
     run_dir = Path(output_dir) / str(run_id)
     run_dir.mkdir(parents=True, exist_ok=True)
     stats_path = run_dir / "stats.h5"
@@ -109,10 +88,8 @@ def _run_single(
 @app.command()
 def main(
     config: Annotated[str, typer.Option(help="Path to base JSON config.")],
-    params_table: Annotated[str | None, typer.Option(help="CSV/TSV file with one run per row.")] = None,
-    row_index: Annotated[int | None, typer.Option(help="1-based row index in params table.")] = None,
     output_dir: Annotated[str, typer.Option(help="Output directory.")] = "results",
-    run_id: Annotated[str, typer.Option(help="Run identifier used for output folder.")] = "run_local",
+    run_id: Annotated[str, typer.Option(help="Run identifier used for output folder.")] = "run",
 ) -> None:
     """Run a single simulation from a JSON config."""
     config_path = Path(config)
@@ -121,8 +98,6 @@ def main(
         config_data,
         output_dir,
         run_id,
-        params_table=params_table,
-        row_index=row_index,
     )
 
 
