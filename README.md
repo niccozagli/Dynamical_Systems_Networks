@@ -37,23 +37,17 @@ This pipeline separates (1) long unperturbed runs that sample the invariant meas
 from (2) response runs that start from sampled states, apply a perturbation, and
 aggregate statistics across many realizations.
 
-### 0) Create configs and seed tables
+### 0) Create configs
 
 Use `notebooks/create_config.ipynb` to create:
 
 - An **unperturbed config** (long integration, state saved).
 - A **response config** (response integrator settings + `perturbation` block).
-- A **network seeds table** (one row per graph realization).
-
-The seeds table should at least contain:
-
-- `run_id`
-- `network.params.seed`
 
 ### 1) Run unperturbed simulations (one folder per graph)
 
-Logic: each row of the seeds table defines one graph realization; the runner
-rebuilds the graph from `network.params.seed` and writes `state.h5` plus
+Logic: each run is an independent graph realization; the runner creates a new
+graph seed when one is not provided and writes `state.h5` plus
 `config_used.json` under `results/.../<run_id>/`.
 
 Local:
@@ -61,18 +55,18 @@ Local:
 ```bash
 ./scripts/single/run_simulations.sh \
   --config configs/linear_response/unperturbed_runs/poisson/config_...json \
-  --table params/linear_response/poisson_seeds.tsv \
   --output-dir results/linear_response/poisson/critical/n1000/unperturbed_runs \
+  --num-graphs 10 \
   --workers 8
 ```
 
 PBS:
 
 ```bash
-qsub -e trash -o trash scripts/cluster/run_linear_response_unperturbed_pbs.sh \
+qsub -e trash -o trash scripts/cluster/single/run_simulations_pbs.sh \
   --config configs/linear_response/unperturbed_runs/poisson/config_...json \
-  --table params/linear_response/poisson_seeds.tsv \
   --output-dir results/linear_response/poisson/critical/n1000/unperturbed_runs \
+  --num-graphs 10 \
   --workers 8
 ```
 
