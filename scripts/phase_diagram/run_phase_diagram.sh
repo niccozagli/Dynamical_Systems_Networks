@@ -2,11 +2,11 @@
 set -euo pipefail
 
 # Usage:
-#   ./scripts/run_phase_diagram.sh [CONFIG_PATH] [TABLE_PATH] [OUTPUT_DIR] \
+#   ./scripts/phase_diagram/run_phase_diagram.sh [CONFIG_PATH] [TABLE_PATH] [OUTPUT_DIR] \
 #     [GRAPH_REALIZATIONS] [NOISE_REALIZATIONS] [WORKERS] [FLUSH_EVERY] [BASE_SEED]
 #
 # Example:
-#   ./scripts/run_phase_diagram.sh \
+#   ./scripts/phase_diagram/run_phase_diagram.sh \
 #     configs/config_double_well_configuration_model_poisson.json \
 #     params/sweep_theta_double_well_configuration_model_poisson.tsv \
 #     results/phase_diagram_double_well_configuration_model_poisson \
@@ -14,8 +14,8 @@ set -euo pipefail
 #
 # Notes:
 # - One sweep row (parameter set) at a time; each row spawns WORKERS processes.
-# - Each worker writes results to results/<run_id>/worker_<id>.h5.
-# - After workers finish for a row, the script writes results/<run_id>/aggregate.h5.
+# - Each worker writes results to results/row_<index>/worker_<id>.h5.
+# - After workers finish for a row, the script writes results/row_<index>/aggregate.h5.
 # - If BASE_SEED is omitted, NumPy uses OS entropy for non-reproducible seeds.
 
 CONFIG_PATH="${1:-configs/config_Kuramoto_ER.json}"
@@ -27,20 +27,8 @@ WORKERS="${6:-1}"
 FLUSH_EVERY="${7:-10}"
 BASE_SEED="${8:-}"
 
-row_count=$(python - "$TABLE_PATH" <<'PY'
-import csv
-from pathlib import Path
-import sys
-
-path = Path(sys.argv[1])
-delim = "," if path.suffix.lower() == ".csv" else "\t"
-with path.open("r", newline="") as fh:
-    lines = [line for line in fh if line.strip() and not line.lstrip().startswith("#")]
-    reader = csv.DictReader(lines, delimiter=delim)
-    rows = list(reader)
-print(len(rows))
-PY
-)
+UTILS="scripts/phase_diagram/phase_diagram_utils.py"
+row_count=$(python "$UTILS" count-rows --table "$TABLE_PATH")
 
 if [ "$row_count" -le 0 ]; then
   echo "No rows found in $TABLE_PATH"
@@ -50,32 +38,25 @@ fi
 mkdir -p "$OUTPUT_DIR"
 
 get_run_id() {
-  python - "$TABLE_PATH" "$1" <<'PY'
-import csv
-from pathlib import Path
-import sys
+  python "$UTILS" row-id --row-index "$1"
+}
 
-path = Path(sys.argv[1])
-row_index = int(sys.argv[2])
-delim = "," if path.suffix.lower() == ".csv" else "\t"
-with path.open("r", newline="") as fh:
-    lines = [line for line in fh if line.strip() and not line.lstrip().startswith("#")]
-    reader = csv.DictReader(lines, delimiter=delim)
-    for idx, row in enumerate(reader, start=1):
-        if idx == row_index:
-            run_id = row.get("run_id")
-            if run_id:
-                print(run_id)
-                sys.exit(0)
-            break
-print(f"row_{row_index}")
-PY
+write_config_used() {
+  python "$UTILS" write-config-used \
+    --config "$CONFIG_PATH" \
+    --table "$TABLE_PATH" \
+    --row-index "$1" \
+    --output-dir "$OUTPUT_DIR" \
+    --run-id "$2" \
+    --graph-realizations "$GRAPH_REALIZATIONS" \
+    --noise-realizations "$NOISE_REALIZATIONS"
 }
 
 for row in $(seq 1 "$row_count"); do
   run_id="$(get_run_id "$row")"
-  echo "Row $row / $row_count -> run_id=$run_id"
+  echo "Row $row / $row_count -> row_id=$run_id"
   start_ts=$(date +%s)
+  write_config_used "$row" "$run_id"
 
   for worker_id in $(seq 0 $((WORKERS - 1))); do
     cmd=(uv run python scripts/run_bulk_parallel.py worker

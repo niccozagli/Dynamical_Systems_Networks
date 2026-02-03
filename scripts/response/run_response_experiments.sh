@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # Usage:
-#   ./scripts/run_response_experiments.sh --config <path> --table <path> --output-dir <dir> --workers <n> [--flush-every <n>]
+#   ./scripts/response/run_response_experiments.sh --config <path> --table <path> --output-dir <dir> --workers <n> [--flush-every <n>]
 #
 # Example:
-#   ./scripts/run_response_experiments.sh \
+#   ./scripts/response/run_response_experiments.sh \
 #     --config configs/config_lr.json \
 #     --table results/response_samples.tsv \
 #     --output-dir results/response \

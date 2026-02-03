@@ -118,20 +118,9 @@ mkdir -p "$OUTPUT_DIR"
 echo "Output root for this job: $OUTPUT_DIR"
 echo
 
-row_count=$("$UV_PROJECT_ENVIRONMENT/bin/python" - "$TABLE_PATH" <<'PY'
-import csv
-from pathlib import Path
-import sys
-
-path = Path(sys.argv[1])
-delim = "," if path.suffix.lower() == ".csv" else "\t"
-with path.open("r", newline="") as fh:
-    lines = [line for line in fh if line.strip() and not line.lstrip().startswith("#")]
-    reader = csv.DictReader(lines, delimiter=delim)
-    rows = list(reader)
-print(len(rows))
-PY
-)
+UTILS="scripts/phase_diagram/phase_diagram_utils.py"
+PYTHON_BIN="$UV_PROJECT_ENVIRONMENT/bin/python"
+row_count=$("$PYTHON_BIN" "$UTILS" count-rows --table "$TABLE_PATH")
 
 if [ "$row_count" -le 0 ]; then
   echo "No rows found in $TABLE_PATH"
@@ -139,34 +128,27 @@ if [ "$row_count" -le 0 ]; then
 fi
 
 get_run_id() {
-  "$UV_PROJECT_ENVIRONMENT/bin/python" - "$TABLE_PATH" "$1" <<'PY'
-import csv
-from pathlib import Path
-import sys
+  "$PYTHON_BIN" "$UTILS" row-id --row-index "$1"
+}
 
-path = Path(sys.argv[1])
-row_index = int(sys.argv[2])
-delim = "," if path.suffix.lower() == ".csv" else "\t"
-with path.open("r", newline="") as fh:
-    lines = [line for line in fh if line.strip() and not line.lstrip().startswith("#")]
-    reader = csv.DictReader(lines, delimiter=delim)
-    for idx, row in enumerate(reader, start=1):
-        if idx == row_index:
-            run_id = row.get("run_id")
-            if run_id:
-                print(run_id)
-                sys.exit(0)
-            break
-print(f"row_{row_index}")
-PY
+write_config_used() {
+  "$PYTHON_BIN" "$UTILS" write-config-used \
+    --config "$CONFIG_PATH" \
+    --table "$TABLE_PATH" \
+    --row-index "$1" \
+    --output-dir "$OUTPUT_DIR" \
+    --run-id "$2" \
+    --graph-realizations "$GRAPH_REALIZATIONS" \
+    --noise-realizations "$NOISE_REALIZATIONS"
 }
 
 for row in $(seq 1 "$row_count"); do
   run_id="$(get_run_id "$row")"
-  echo "Row $row / $row_count -> run_id=$run_id"
+  echo "Row $row / $row_count -> row_id=$run_id"
   start_ts=$(date +%s)
+  write_config_used "$row" "$run_id"
 
-  echo "[$(date)] launching $WORKERS workers for run_id=$run_id"
+  echo "[$(date)] launching $WORKERS workers for row_id=$run_id"
   pids=()
 
   for worker_id in $(seq 0 $((WORKERS - 1))); do
@@ -192,7 +174,7 @@ for row in $(seq 1 "$row_count"); do
     echo "[$(date)] started worker_id=$worker_id pid=$pid"
   done
 
-  echo "[$(date)] entering wait for run_id=$run_id"
+  echo "[$(date)] entering wait for row_id=$run_id"
   fail=0
   for pid in "${pids[@]}"; do
     if wait "$pid"; then
@@ -203,18 +185,18 @@ for row in $(seq 1 "$row_count"); do
       fail=1
     fi
   done
-  echo "[$(date)] all workers waited for run_id=$run_id (fail=$fail)"
+  echo "[$(date)] all workers waited for row_id=$run_id (fail=$fail)"
 
   if [ "$fail" -ne 0 ]; then
-    echo "One or more workers failed for run_id=$run_id; skipping aggregation."
+    echo "One or more workers failed for row_id=$run_id; skipping aggregation."
     continue
   fi
 
-  echo "[$(date)] starting aggregation for run_id=$run_id"
+  echo "[$(date)] starting aggregation for row_id=$run_id"
   "$UV_PROJECT_ENVIRONMENT/bin/python" -u -X faulthandler scripts/run_bulk_parallel.py aggregate \
     --output-dir "$OUTPUT_DIR" \
     --run-id "$run_id"
-  echo "[$(date)] finished aggregation for run_id=$run_id"
+  echo "[$(date)] finished aggregation for row_id=$run_id"
 
   end_ts=$(date +%s)
   echo "Finished row $row in $((end_ts - start_ts))s"

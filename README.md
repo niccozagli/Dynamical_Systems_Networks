@@ -84,7 +84,7 @@ rebuild the table later without losing the ability to track what was used.
 Local (typically from the login node on cluster):
 
 ```bash
-./scripts/run_build_response_table.sh \
+./scripts/response/run_build_response_table.sh \
   --unperturbed-root results/.../unperturbed_runs/job_<PBS_JOBID> \
   --output-dir results/.../unperturbed_runs \
   --transient 5000
@@ -103,7 +103,7 @@ Logic: you usually do not want to run on the entire master table at once.
 Sequential (fast, takes the next unused rows):
 
 ```bash
-./scripts/run_claim_response_chunk.sh \
+./scripts/response/run_claim_response_chunk.sh \
   --table results/.../unperturbed_runs/response_samples.tsv \
   --output-dir results/.../unperturbed_runs/chunks \
   --chunk-size 50000
@@ -112,7 +112,7 @@ Sequential (fast, takes the next unused rows):
 Randomized (uniform over unused rows via reservoir sampling; scans the table):
 
 ```bash
-./scripts/run_claim_response_chunk.sh \
+./scripts/response/run_claim_response_chunk.sh \
   --table results/.../unperturbed_runs/response_samples.tsv \
   --output-dir results/.../unperturbed_runs/chunks \
   --chunk-size 50000 \
@@ -142,7 +142,7 @@ Logic per row:
 Local:
 
 ```bash
-./scripts/run_response_experiments.sh \
+./scripts/response/run_response_experiments.sh \
   --config configs/linear_response/perturbed_runs/poisson/config_...json \
   --table results/.../unperturbed_runs/chunks/response_samples_chunk_0001.tsv \
   --output-dir results/.../perturbed_runs \
@@ -172,7 +172,7 @@ This is safe to run while workers are still running (you will just aggregate the
 data flushed so far).
 
 ```bash
-./scripts/run_response_aggregate.sh \
+./scripts/response/run_response_aggregate.sh \
   --output-dir results/.../perturbed_runs/job_<PBS_JOBID>
 ```
 

@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # Usage:
-#   ./scripts/run_response_aggregate.sh --output-dir <dir> [--pattern <glob>]
+#   ./scripts/response/run_response_aggregate.sh --output-dir <dir> [--pattern <glob>]
 #
 # Example:
-#   ./scripts/run_response_aggregate.sh \
+#   ./scripts/response/run_response_aggregate.sh \
 #     --output-dir results/linear_response/poisson/critical/n1000/perturbed_runs/job_12345
 #
 # Note:

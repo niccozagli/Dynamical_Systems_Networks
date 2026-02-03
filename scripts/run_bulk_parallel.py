@@ -41,15 +41,14 @@ def _apply_table_overrides(
     base_config: dict,
     params_table: str | None,
     row_index: int | None,
-) -> tuple[dict, str | None, bool]:
+) -> tuple[dict, bool]:
     if not params_table:
-        return base_config, None, False
+        return base_config, False
     if row_index is None:
         raise ValueError("--row-index is required with --params-table")
     row = load_table_row(Path(params_table), row_index)
-    row_run_id = row.get("run_id")
     apply_overrides(base_config, row)
-    return base_config, row_run_id, True
+    return base_config, True
 
 
 def _prepare_graph_bundle(graph_config: dict):
@@ -127,11 +126,9 @@ def worker(
 
     config_path = Path(config)
     base_config = _load_base_config(config_path)
-    base_config, row_run_id, table_applied = _apply_table_overrides(
+    base_config, table_applied = _apply_table_overrides(
         base_config, params_table, row_index
     )
-    if row_run_id:
-        run_id = row_run_id
 
     run_dir = Path(output_dir) / str(run_id)
     run_dir.mkdir(parents=True, exist_ok=True)
