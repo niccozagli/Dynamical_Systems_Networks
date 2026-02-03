@@ -2,14 +2,14 @@
   "system": {
     "name": "double_well_network",
     "params": {
-      "theta": 0.017416234439947848,
+      "theta": 0.008708117219973924,
       "alpha_rot": 0.0
     }
   },
   "network": {
     "name": "configuration_model",
     "params": {
-      "n": 5000,
+      "n": 1000,
       "degree_distribution": {
         "name": "poisson",
         "params": {
@@ -26,10 +26,10 @@
   },
   "integrator": {
     "tmin": 0.0,
-    "tmax": 50000.0,
+    "tmax": 205000.0,
     "dt": 0.01,
-    "stats_every": 100000,
-    "state_every": 1000,
+    "stats_every": 200,
+    "state_every": 200,
     "write_stats_at_start": true,
     "write_state_at_start": true
   },
