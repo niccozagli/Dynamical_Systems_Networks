@@ -2,6 +2,7 @@
 
 import copy
 import json
+import secrets
 from pathlib import Path
 from typing import Annotated
 
@@ -44,6 +45,14 @@ def _run_single(
         table_applied = True
     else:
         table_applied = False
+
+    # Ensure reproducible seeds are recorded. If not provided, draw from OS entropy.
+    net_params = config_data.setdefault("network", {}).setdefault("params", {})
+    if net_params.get("seed") is None:
+        net_params["seed"] = int(secrets.randbits(32))
+    run_cfg = config_data.setdefault("run", {})
+    if run_cfg.get("seed") is None:
+        run_cfg["seed"] = int(secrets.randbits(32))
 
     A = prepare_network(config_data)
     n = A.shape[0]

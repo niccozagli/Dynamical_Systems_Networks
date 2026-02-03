@@ -59,7 +59,7 @@ rebuilds the graph from `network.params.seed` and writes `state.h5` plus
 Local:
 
 ```bash
-./scripts/run_linear_response_unperturbed_experiments.sh \
+./scripts/single/run_simulations.sh \
   --config configs/linear_response/unperturbed_runs/poisson/config_...json \
   --table params/linear_response/poisson_seeds.tsv \
   --output-dir results/linear_response/poisson/critical/n1000/unperturbed_runs \
