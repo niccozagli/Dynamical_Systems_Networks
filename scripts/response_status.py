@@ -47,7 +47,14 @@ def main() -> None:
         print(header)
         print("-" * len(header))
     for path in paths:
-        with h5py.File(path, "r", swmr=True, libver="latest") as fh:
+        try:
+            fh_ctx = h5py.File(path, "r", swmr=True, libver="latest")
+        except OSError as exc:
+            if "not already open for SWMR writing" in str(exc):
+                fh_ctx = h5py.File(path, "r", libver="latest")
+            else:
+                raise
+        with fh_ctx as fh:
             runs_done = fh.attrs.get("runs_done")
             sample_count = fh.attrs.get("sample_count")
             runs_per_s = fh.attrs.get("runs_per_s")

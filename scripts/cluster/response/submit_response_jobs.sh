@@ -78,10 +78,6 @@ unperturbed_dir="results/linear_response/${NETWORK_NAME}/unperturbed_runs/${SETT
 response_config="configs/linear_response/${NETWORK_NAME}/perturbed_runs/${SETTING}/response_config_${PERTURBATION}_eps${EPS_TAG}.json"
 output_dir="results/linear_response/${NETWORK_NAME}/perturbed_runs/${SETTING}/n${N}/graph_${GRAPH}"
 
-log_dir="trash"
-mkdir -p "$log_dir"
-log_file="$log_dir/submit_response_jobs_$(date +%Y%m%d_%H%M%S).log"
-
 echo "Submitting response jobs:"
 echo "  unperturbed_dir = ${unperturbed_dir}"
 echo "  response_config = ${response_config}"
@@ -90,20 +86,7 @@ echo "  num_jobs        = ${NUM_JOBS}"
 echo "  workers         = ${WORKERS}"
 echo "  transient       = ${TRANSIENT}"
 echo "  flush_every     = ${FLUSH_EVERY}"
-echo "  log_file        = ${log_file}"
 echo
-
-{
-  echo "submit_time: $(date)"
-  echo "unperturbed_dir: ${unperturbed_dir}"
-  echo "response_config: ${response_config}"
-  echo "output_dir: ${output_dir}"
-  echo "num_jobs: ${NUM_JOBS}"
-  echo "workers: ${WORKERS}"
-  echo "transient: ${TRANSIENT}"
-  echo "flush_every: ${FLUSH_EVERY}"
-  echo
-} >> "$log_file"
 
 for job_id in $(seq 0 $((NUM_JOBS - 1))); do
   cmd=(qsub -e trash -o trash -v ARGS="--unperturbed-dir ${unperturbed_dir} \
@@ -115,7 +98,5 @@ for job_id in $(seq 0 $((NUM_JOBS - 1))); do
 --flush-every ${FLUSH_EVERY}" \
     scripts/cluster/response/run_response_cluster_pbs.sh)
   job_output="$("${cmd[@]}")"
-  echo "submitted job_id=${job_id} qsub_id=${job_output}" | tee -a "$log_file"
-  echo "cmd: ${cmd[*]}" >> "$log_file"
-  echo >> "$log_file"
+  echo "submitted job_id=${job_id} qsub_id=${job_output}"
 done

@@ -152,6 +152,11 @@ def _init_worker_file(path: Path, fieldnames: list[str], n_rows: int) -> h5py.Fi
         fh.attrs["fieldnames"] = np.asarray(fieldnames, dtype="S")
         fh.flush()
 
+    if not fh.swmr_mode:
+        fh.flush()
+        fh.swmr_mode = True
+        fh.flush()
+
     return fh
 
 
