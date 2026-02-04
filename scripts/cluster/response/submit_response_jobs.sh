@@ -78,7 +78,7 @@ unperturbed_dir="results/linear_response/${NETWORK_NAME}/unperturbed_runs/${SETT
 response_config="configs/linear_response/${NETWORK_NAME}/perturbed_runs/${SETTING}/response_config_${PERTURBATION}_eps${EPS_TAG}.json"
 output_dir="results/linear_response/${NETWORK_NAME}/perturbed_runs/${SETTING}/n${N}/graph_${GRAPH}"
 
-log_dir="${output_dir%/}/submit_logs"
+log_dir="trash"
 mkdir -p "$log_dir"
 log_file="$log_dir/submit_response_jobs_$(date +%Y%m%d_%H%M%S).log"
 
