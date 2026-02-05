@@ -315,9 +315,9 @@ def worker(
             x_plus = x0 + eps * delta
             x_minus = x0 - eps * delta
 
+            run_seed = int(rng.integers(0, 2**32 - 1))
+            run_config.setdefault("run", {})["seed"] = run_seed
             for x_init, target in ((x_plus, state_plus), (x_minus, state_minus)):
-                run_seed = int(rng.integers(0, 2**32 - 1))
-                run_config.setdefault("run", {})["seed"] = run_seed
                 stats_arr = _run_single_stats(bundle, x_init, run_config)
                 update_aggregate(target, stats_arr)
 

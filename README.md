@@ -33,9 +33,69 @@ Please note that the output of the simulation is continuously update as the simu
 
 ## Linear Response Experiments
 
-The linear response pipeline is being rebuilt from scratch. Response-related
-scripts and wrappers have been removed for now. We will reintroduce the new
-workflow and commands once the design is finalized.
+### Overview
+
+Linear response experiments compare `+epsilon` and `-epsilon` perturbations
+starting from the **same** unperturbed state sample (stored in `state.h5`).
+For each selected state, we:
+
+1. Apply the perturbation to the full N-particle state.
+2. Integrate the dynamics.
+3. Compute N-particle statistics at each time step.
+4. Average statistics across many realizations.
+
+### Variance Reduction (CRN)
+
+We use **common random numbers** (CRN) by default: the `+epsilon` and `-epsilon`
+simulations for the same initial state share the **same noise seed**. This
+reduces variance in the response estimate without biasing the mean, since the
+stochastic noise largely cancels in the subtraction.
+
+### Local execution
+
+Run locally with workers (no jobs):
+
+```bash
+scripts/response/run_response_local.sh \
+  --unperturbed-dir results/linear_response/poisson/unperturbed_runs/critical/n1000/graph_0001 \
+  --response-config configs/linear_response/poisson/perturbed_runs/critical/response_config_constant_eps001.json \
+  --output-dir results/linear_response/poisson/perturbed_runs/critical/n1000/graph_0001/eps001 \
+  --transient 5000 \
+  --workers 8 \
+  --flush-every 10
+```
+
+This creates:
+
+- `response/worker_XXXX.h5` (per worker)
+- `response/aggregate.h5` (merged stats)
+- `response/config_used.json`
+
+### Cluster execution
+
+Use the PBS wrapper and split work by jobs + workers:
+
+```bash
+qsub -e trash -o trash -v ARGS="\
+  --unperturbed-dir results/linear_response/poisson/unperturbed_runs/critical/n1000/graph_0001 \
+  --response-config configs/linear_response/poisson/perturbed_runs/critical/response_config_constant_eps001.json \
+  --output-dir results/linear_response/poisson/perturbed_runs/critical/n1000/graph_0001/eps001 \
+  --transient 5000 \
+  --workers 8 \
+  --job-id 0 \
+  --num-jobs 10 \
+  --flush-every 10" \
+  scripts/cluster/response/run_response_cluster_pbs.sh
+```
+
+### Aggregation
+
+Merge worker outputs at any time:
+
+```bash
+scripts/response/run_response_aggregate.sh \
+  --output-dir results/linear_response/poisson/perturbed_runs/critical/n1000/graph_0001/eps001
+```
 
 <details>
 <summary>How to add a new dynamical system</summary>
