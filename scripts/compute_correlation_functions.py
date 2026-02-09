@@ -138,6 +138,9 @@ def main():
             results[setting][n_val] = (t, corr_mean, corr_std)
             tau_results[setting][n_val] = float(np.trapz(corr_mean, t))
 
+    summary_dir = base_dir / "correlation_functions_summary"
+    summary_dir.mkdir(parents=True, exist_ok=True)
+
     if any(results.values()):
         fig, axes = plt.subplots(nrows=len(args.settings), figsize=(8, 4 * len(args.settings)), sharex=True)
         if len(args.settings) == 1:
@@ -161,27 +164,64 @@ def main():
 
         axes[-1].set_xlabel("t")
         fig.tight_layout()
-        plot_path = base_dir / args.plot_name
+        plot_path = summary_dir / args.plot_name
         fig.savefig(plot_path, dpi=200, bbox_inches="tight")
         print(f"Saved plot {plot_path}")
 
-    if any(tau_results.values()):
+    # Normalized correlation plot + tau from normalized correlation
+    tau_norm_results = {setting: {} for setting in args.settings}
+    if any(results.values()):
+        fig, axes = plt.subplots(nrows=len(args.settings), figsize=(8, 4 * len(args.settings)), sharex=True)
+        if len(args.settings) == 1:
+            axes = [axes]
+
+        for ax, setting in zip(axes, args.settings):
+            n_vals = sorted(results.get(setting, {}).keys())
+            if not n_vals:
+                continue
+            cmap = plt.get_cmap("viridis")
+            for i, n_val in enumerate(n_vals):
+                t, corr_mean, corr_std = results[setting][n_val]
+                if corr_mean.size == 0:
+                    continue
+                norm = corr_mean[0]
+                if norm == 0:
+                    continue
+                corr_mean_n = corr_mean / norm
+                corr_std_n = corr_std / abs(norm)
+                frac = 0.2 + 0.6 * (i / max(1, len(n_vals) - 1))
+                color = cmap(frac)
+                ax.plot(t, corr_mean_n, color=color, label=f"N={n_val}")
+                ax.fill_between(t, corr_mean_n - corr_std_n, corr_mean_n + corr_std_n, color=color, alpha=0.2)
+                tau_norm_results[setting][n_val] = float(np.trapz(corr_mean_n, t))
+
+            ax.set_title(f"{setting} (normalized)")
+            ax.set_ylabel("C(t) / C(0)")
+            ax.legend(frameon=False)
+
+        axes[-1].set_xlabel("t")
+        fig.tight_layout()
+        plot_path = summary_dir / "correlation_mean_x1_normalized.png"
+        fig.savefig(plot_path, dpi=200, bbox_inches="tight")
+        print(f"Saved plot {plot_path}")
+
+    if any(tau_norm_results.values()):
         fig, axes = plt.subplots(nrows=len(args.settings), figsize=(6, 3.5 * len(args.settings)), sharex=True)
         if len(args.settings) == 1:
             axes = [axes]
 
         for ax, setting in zip(axes, args.settings):
-            n_vals = sorted(tau_results.get(setting, {}).keys())
+            n_vals = sorted(tau_norm_results.get(setting, {}).keys())
             if not n_vals:
                 continue
-            taus = [tau_results[setting][n] for n in n_vals]
+            taus = [tau_norm_results[setting][n] for n in n_vals]
             ax.plot(n_vals, taus, marker="o")
             ax.set_title(setting)
             ax.set_ylabel(r"$\tau_{\mathrm{corr}}$")
 
         axes[-1].set_xlabel("N")
         fig.tight_layout()
-        tau_plot_path = base_dir / "correlation_time.png"
+        tau_plot_path = summary_dir / "correlation_time_normalized.png"
         fig.savefig(tau_plot_path, dpi=200, bbox_inches="tight")
         print(f"Saved plot {tau_plot_path}")
 
