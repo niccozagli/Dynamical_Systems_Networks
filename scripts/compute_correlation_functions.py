@@ -79,6 +79,7 @@ def main():
 
     base_dir = Path(args.base_dir)
     results = {setting: {} for setting in args.settings}
+    tau_results = {setting: {} for setting in args.settings}
 
     for setting in args.settings:
         for n_val in args.Ns:
@@ -135,6 +136,7 @@ def main():
                        graph_count=graph_count, transient=args.transient, t_max=args.t_max)
             print(f"Saved {output_path} (graphs={graph_count})")
             results[setting][n_val] = (t, corr_mean, corr_std)
+            tau_results[setting][n_val] = float(np.trapz(corr_mean, t))
 
     if any(results.values()):
         fig, axes = plt.subplots(nrows=len(args.settings), figsize=(8, 4 * len(args.settings)), sharex=True)
@@ -162,6 +164,26 @@ def main():
         plot_path = base_dir / args.plot_name
         fig.savefig(plot_path, dpi=200, bbox_inches="tight")
         print(f"Saved plot {plot_path}")
+
+    if any(tau_results.values()):
+        fig, axes = plt.subplots(nrows=len(args.settings), figsize=(6, 3.5 * len(args.settings)), sharex=True)
+        if len(args.settings) == 1:
+            axes = [axes]
+
+        for ax, setting in zip(axes, args.settings):
+            n_vals = sorted(tau_results.get(setting, {}).keys())
+            if not n_vals:
+                continue
+            taus = [tau_results[setting][n] for n in n_vals]
+            ax.plot(n_vals, taus, marker="o")
+            ax.set_title(setting)
+            ax.set_ylabel(r"$\\tau_{\\mathrm{corr}}$")
+
+        axes[-1].set_xlabel("N")
+        fig.tight_layout()
+        tau_plot_path = base_dir / "correlation_time.png"
+        fig.savefig(tau_plot_path, dpi=200, bbox_inches="tight")
+        print(f"Saved plot {tau_plot_path}")
 
 
 if __name__ == "__main__":
