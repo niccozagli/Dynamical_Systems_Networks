@@ -91,9 +91,22 @@ def _compute_corr_degree_weighted(state_path: Path, config_path: Path, transient
                 x1 = np.asarray(state_dset[int(idx), :, 0], dtype=float)
                 signal[j] = float(np.dot(degrees, x1) / deg_sum)
         elif state_dset.ndim == 2:
-            for j, idx in enumerate(indices):
-                x1 = np.asarray(state_dset[int(idx), :], dtype=float)
-                signal[j] = float(np.dot(degrees, x1) / deg_sum)
+            row = np.asarray(state_dset[int(indices[0]), :], dtype=float).reshape(-1)
+            dim = row.size
+            n_nodes = degrees.size
+            if dim == n_nodes:
+                for j, idx in enumerate(indices):
+                    x1 = np.asarray(state_dset[int(idx), :], dtype=float).reshape(-1)
+                    signal[j] = float(np.dot(degrees, x1) / deg_sum)
+            elif dim == 2 * n_nodes:
+                for j, idx in enumerate(indices):
+                    x = np.asarray(state_dset[int(idx), :], dtype=float).reshape(n_nodes, 2)
+                    x1 = x[:, 0]
+                    signal[j] = float(np.dot(degrees, x1) / deg_sum)
+            else:
+                raise ValueError(
+                    f"State dimension {dim} does not match N={n_nodes} or 2N in {state_path}"
+                )
         else:
             raise ValueError(f"Unexpected state dataset shape {state_dset.shape} in {state_path}")
 
