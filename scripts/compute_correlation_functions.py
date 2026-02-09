@@ -46,7 +46,7 @@ def _compute_corr(stats_path: Path, transient: float):
 
 
 def _save_corr(output_path: Path, t: np.ndarray, corr_mean: np.ndarray, corr_std: np.ndarray, *,
-               graph_count: int, transient: float):
+               graph_count: int, transient: float, t_max: float | None):
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with h5py.File(output_path, "w") as fh:
         fh.create_dataset("t", data=t, compression="gzip", compression_opts=4)
@@ -55,6 +55,8 @@ def _save_corr(output_path: Path, t: np.ndarray, corr_mean: np.ndarray, corr_std
         fh.attrs["graph_count"] = int(graph_count)
         fh.attrs["transient"] = float(transient)
         fh.attrs["stat"] = "mean_x1"
+        if t_max is not None:
+            fh.attrs["t_max"] = float(t_max)
 
 
 def main():
@@ -71,6 +73,8 @@ def main():
                         help="Output filename to store averaged correlation.")
     parser.add_argument("--plot-name", default="correlation_mean_x1.png",
                         help="Plot filename (saved under base-dir).")
+    parser.add_argument("--t-max", type=float, default=2000.0,
+                        help="Max time shown/saved for the correlation function.")
     args = parser.parse_args()
 
     base_dir = Path(args.base_dir)
@@ -118,9 +122,17 @@ def main():
 
             dt_ref = dt_ref or 0.0
             t = np.arange(min_len) * dt_ref
+            if args.t_max is not None:
+                mask = t <= float(args.t_max)
+                if not np.any(mask):
+                    print(f"Skip {n_dir}: no samples within t_max={args.t_max}")
+                    continue
+                t = t[mask]
+                corr_mean = corr_mean[mask]
+                corr_std = corr_std[mask]
             output_path = n_dir / args.output_name
             _save_corr(output_path, t, corr_mean, corr_std,
-                       graph_count=graph_count, transient=args.transient)
+                       graph_count=graph_count, transient=args.transient, t_max=args.t_max)
             print(f"Saved {output_path} (graphs={graph_count})")
             results[setting][n_val] = (t, corr_mean, corr_std)
 
