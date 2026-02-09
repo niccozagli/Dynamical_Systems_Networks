@@ -177,7 +177,7 @@ def main():
             taus = [tau_results[setting][n] for n in n_vals]
             ax.plot(n_vals, taus, marker="o")
             ax.set_title(setting)
-            ax.set_ylabel(r"$\\tau_{\\mathrm{corr}}$")
+            ax.set_ylabel(r"$\tau_{\mathrm{corr}}$")
 
         axes[-1].set_xlabel("N")
         fig.tight_layout()
