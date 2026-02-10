@@ -133,6 +133,41 @@ def _load_degrees(config_path: Path) -> np.ndarray:
     return deg
 
 
+def _plot_rho_k_by_bins(ax, x1: np.ndarray, deg: np.ndarray, *, bins=60):
+    # Bin by degree quantiles (low/mid/high)
+    q = np.quantile(deg, [0.0, 0.33, 0.66, 1.0])
+    labels = ["low k", "mid k", "high k"]
+    for (lo, hi), label in zip(zip(q[:-1], q[1:]), labels):
+        mask = (deg >= lo) & (deg <= hi)
+        if not np.any(mask):
+            continue
+        hist, bin_edges = np.histogram(x1[mask], bins=bins, density=True)
+        centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+        ax.plot(centers, hist, label=label)
+
+
+def _plot_rho_k_heatmap(ax, x1: np.ndarray, deg: np.ndarray, *, x_bins=60, k_bins=40):
+    # 2D histogram of k vs x1 (density normalized per-k)
+    k_vals = deg.astype(float)
+    hist, x_edges, k_edges = np.histogram2d(x1, k_vals, bins=[x_bins, k_bins], density=False)
+    # Normalize per-k bin to get rho_k(x)
+    col_sums = hist.sum(axis=0, keepdims=True)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        hist = np.divide(hist, col_sums, where=col_sums > 0)
+    extent = [k_edges[0], k_edges[-1], x_edges[0], x_edges[-1]]
+    im = ax.imshow(
+        hist,
+        origin="lower",
+        aspect="auto",
+        extent=extent,
+        cmap="viridis",
+        interpolation="nearest",
+    )
+    ax.set_xlabel("k")
+    ax.set_ylabel("x1")
+    return im
+
+
 def _aggregate_and_save(
     *,
     base_dir: Path,
@@ -472,6 +507,59 @@ def main():
     summary_dir = base_dir / "correlation_functions_summary"
     summary_dir.mkdir(parents=True, exist_ok=True)
     plot_path = summary_dir / "empirical_measure_final_x1.png"
+    fig.savefig(plot_path, dpi=200, bbox_inches="tight")
+    print(f"Saved plot {plot_path}")
+
+    # rho_k(x): degree-binned curves + heatmap (critical and far)
+    fig, axes = plt.subplots(nrows=len(settings_for_empirical), ncols=2, figsize=(12, 4 * len(settings_for_empirical)))
+    if len(settings_for_empirical) == 1:
+        axes = [axes]
+    for row_ax, setting in zip(axes, settings_for_empirical):
+        ax_bins = row_ax[0]
+        ax_heat = row_ax[1]
+        setting_dir = base_dir / setting
+        if not setting_dir.exists():
+            continue
+        # Use one representative graph per N (first found) and plot the largest N available
+        n_vals = [n for n in args.Ns if (setting_dir / f"n{n}").exists()]
+        if not n_vals:
+            continue
+        n_val = max(n_vals)
+        n_dir = setting_dir / f"n{n_val}"
+        graph_dir = next(iter(sorted(n_dir.glob("graph_*"))), None)
+        if graph_dir is None:
+            continue
+        state_path = graph_dir / "state.h5"
+        config_path = graph_dir / "config_used.json"
+        if not state_path.exists() or not config_path.exists():
+            continue
+        try:
+            x = _load_final_x1(state_path)
+            deg = _load_degrees(config_path)
+        except Exception as exc:
+            print(f"Skip rho_k {graph_dir}: {exc}")
+            continue
+        if x.size % 2 == 0:
+            n_nodes = x.size // 2
+            x1 = x.reshape(n_nodes, 2)[:, 0]
+        else:
+            x1 = x
+        if deg.size != x1.size:
+            print(f"Skip rho_k {graph_dir}: degree size mismatch")
+            continue
+
+        _plot_rho_k_by_bins(ax_bins, x1, deg, bins=60)
+        ax_bins.set_title(f"{setting} (rho_k(x), N={n_val})")
+        ax_bins.set_xlabel("x1")
+        ax_bins.set_ylabel("density")
+        ax_bins.legend(frameon=False)
+
+        im = _plot_rho_k_heatmap(ax_heat, x1, deg, x_bins=60, k_bins=40)
+        ax_heat.set_title(f"{setting} (rho_k heatmap, N={n_val})")
+        fig.colorbar(im, ax=ax_heat, label="rho_k(x)")
+
+    fig.tight_layout()
+    plot_path = summary_dir / "rho_k_x1.png"
     fig.savefig(plot_path, dpi=200, bbox_inches="tight")
     print(f"Saved plot {plot_path}")
 
