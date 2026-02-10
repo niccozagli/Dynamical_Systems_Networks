@@ -116,6 +116,16 @@ def _compute_corr_degree_weighted(state_path: Path, config_path: Path, transient
     return corr, dt
 
 
+def _load_final_x1(state_path: Path) -> np.ndarray:
+    with h5py.File(state_path, "r") as h5f:
+        state_dset = h5f["state"]
+        last_idx = int(state_dset.shape[0] - 1)
+        if last_idx < 0:
+            raise ValueError(f"Empty state dataset in {state_path}")
+        x = np.asarray(state_dset[last_idx, :], dtype=float).reshape(-1)
+    return x
+
+
 def _aggregate_and_save(
     *,
     base_dir: Path,
@@ -346,8 +356,8 @@ def main():
             plot_name="correlation_degree_weighted_mean_x1.png",
             normalized_plot_name="correlation_degree_weighted_mean_x1_normalized.png",
             tau_plot_name="correlation_time_degree_weighted_mean_x1_normalized.png",
-            ylabel="corr(degree-weighted mean_x1)",
-        )
+        ylabel="corr(degree-weighted mean_x1)",
+    )
 
     # Plot representative mean_x1 time series for critical setting (one graph per N)
     critical_dir = base_dir / "critical"
@@ -388,6 +398,52 @@ def main():
             plot_path = summary_dir / "critical_mean_x1_timeseries.png"
             fig.savefig(plot_path, dpi=200, bbox_inches="tight")
             print(f"Saved plot {plot_path}")
+
+    # Empirical measure at final timestep for critical and far (one graph per N)
+    settings_for_empirical = ["critical", "far"]
+    fig, axes = plt.subplots(nrows=len(settings_for_empirical), figsize=(8, 4 * len(settings_for_empirical)), sharex=True)
+    if len(settings_for_empirical) == 1:
+        axes = [axes]
+    for ax, setting in zip(axes, settings_for_empirical):
+        setting_dir = base_dir / setting
+        if not setting_dir.exists():
+            continue
+        cmap = plt.get_cmap("viridis")
+        n_vals = [n for n in args.Ns if (setting_dir / f"n{n}").exists()]
+        for i, n_val in enumerate(n_vals):
+            n_dir = setting_dir / f"n{n_val}"
+            graph_dir = next(iter(sorted(n_dir.glob("graph_*"))), None)
+            if graph_dir is None:
+                continue
+            state_path = graph_dir / "state.h5"
+            if not state_path.exists():
+                continue
+            try:
+                x = _load_final_x1(state_path)
+            except Exception as exc:
+                print(f"Skip {state_path}: {exc}")
+                continue
+            # Handle 2N state (x1, x2) vs N state (x1)
+            if x.size % 2 == 0:
+                n_nodes = x.size // 2
+                x1 = x.reshape(n_nodes, 2)[:, 0]
+            else:
+                x1 = x
+            frac = 0.2 + 0.6 * (i / max(1, len(n_vals) - 1))
+            color = cmap(frac)
+            hist, bin_edges = np.histogram(x1, bins=60, density=True)
+            centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+            ax.plot(centers, hist, color=color, label=f"N={n_val} ({graph_dir.name})")
+        ax.set_title(setting)
+        ax.set_ylabel("empirical density")
+        ax.legend(frameon=False)
+    axes[-1].set_xlabel("x1 (final)")
+    fig.tight_layout()
+    summary_dir = base_dir / "correlation_functions_summary"
+    summary_dir.mkdir(parents=True, exist_ok=True)
+    plot_path = summary_dir / "empirical_measure_final_x1.png"
+    fig.savefig(plot_path, dpi=200, bbox_inches="tight")
+    print(f"Saved plot {plot_path}")
 
 
 if __name__ == "__main__":
