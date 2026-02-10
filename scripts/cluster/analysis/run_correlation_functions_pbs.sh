@@ -23,11 +23,11 @@ echo
 
 # Parameters can be passed either via qsub -v ARGS="..." or directly as CLI flags.
 # Example (qsub):
-#   qsub -e trash -o trash -v ARGS="--transient 5000 --t-max 2000" \
+#   qsub -e trash -o trash -v ARGS="--transient 5000 --t-max 2000 --with-degree-weighted" \
 #     scripts/cluster/analysis/run_correlation_functions_pbs.sh
 # Example (direct flags):
 #   qsub -e trash -o trash scripts/cluster/analysis/run_correlation_functions_pbs.sh \
-#     --transient 5000 --t-max 2000
+#     --transient 5000 --t-max 2000 --with-degree-weighted
 ARGS="${ARGS:-}"
 if [ "$#" -gt 0 ]; then
   argv=("$@")
