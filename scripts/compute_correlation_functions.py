@@ -352,35 +352,42 @@ def main():
     # Plot representative mean_x1 time series for critical setting (one graph per N)
     critical_dir = base_dir / "critical"
     if critical_dir.exists():
-        fig, ax = plt.subplots(figsize=(8, 4))
-        for n_val in args.Ns:
-            n_dir = critical_dir / f"n{n_val}"
-            graph_dir = next(iter(sorted(n_dir.glob("graph_*"))), None)
-            if graph_dir is None:
-                continue
-            stats_path = graph_dir / "stats.h5"
-            if not stats_path.exists():
-                continue
-            try:
-                data, fieldnames = _read_stats(stats_path)
-                t_idx = fieldnames.index("t")
-                x_idx = fieldnames.index("mean_x1")
-            except Exception as exc:
-                print(f"Skip {stats_path}: {exc}")
-                continue
-            t = data[:, t_idx]
-            x = data[:, x_idx]
-            ax.plot(t, x, label=f"N={n_val} ({graph_dir.name})")
-        ax.set_title("Representative mean_x1 (critical)")
-        ax.set_xlabel("t")
-        ax.set_ylabel("mean_x1")
-        ax.legend(frameon=False)
-        fig.tight_layout()
-        summary_dir = base_dir / "correlation_functions_summary"
-        summary_dir.mkdir(parents=True, exist_ok=True)
-        plot_path = summary_dir / "critical_mean_x1_timeseries.png"
-        fig.savefig(plot_path, dpi=200, bbox_inches="tight")
-        print(f"Saved plot {plot_path}")
+        n_vals = [n for n in args.Ns if (critical_dir / f"n{n}").exists()]
+        if n_vals:
+            fig, axes = plt.subplots(nrows=len(n_vals), figsize=(8, 3 * len(n_vals)), sharex=True)
+            if len(n_vals) == 1:
+                axes = [axes]
+            for ax, n_val in zip(axes, n_vals):
+                n_dir = critical_dir / f"n{n_val}"
+                graph_dir = next(iter(sorted(n_dir.glob("graph_*"))), None)
+                if graph_dir is None:
+                    continue
+                stats_path = graph_dir / "stats.h5"
+                if not stats_path.exists():
+                    continue
+                try:
+                    data, fieldnames = _read_stats(stats_path)
+                    t_idx = fieldnames.index("t")
+                    x_idx = fieldnames.index("mean_x1")
+                except Exception as exc:
+                    print(f"Skip {stats_path}: {exc}")
+                    continue
+                t = data[:, t_idx]
+                x = data[:, x_idx]
+                mask = t > float(args.transient)
+                t = t[mask]
+                x = x[mask]
+                ax.plot(t, x, label=f"N={n_val} ({graph_dir.name})")
+                ax.set_ylabel("mean_x1")
+                ax.legend(frameon=False)
+            axes[0].set_title("Representative mean_x1 (critical, post-transient)")
+            axes[-1].set_xlabel("t")
+            fig.tight_layout()
+            summary_dir = base_dir / "correlation_functions_summary"
+            summary_dir.mkdir(parents=True, exist_ok=True)
+            plot_path = summary_dir / "critical_mean_x1_timeseries.png"
+            fig.savefig(plot_path, dpi=200, bbox_inches="tight")
+            print(f"Saved plot {plot_path}")
 
 
 if __name__ == "__main__":
