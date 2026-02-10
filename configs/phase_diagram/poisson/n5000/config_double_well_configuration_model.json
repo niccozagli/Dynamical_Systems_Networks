@@ -9,7 +9,7 @@
   "network": {
     "name": "configuration_model",
     "params": {
-      "n": 10000,
+      "n": 5000,
       "degree_distribution": {
         "name": "poisson",
         "params": {
