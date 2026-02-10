@@ -2,7 +2,7 @@
   "system": {
     "name": "double_well_network",
     "params": {
-      "theta": 0.017416234439947848,
+      "theta": 0.009412225422018515,
       "alpha_rot": 0.0
     }
   },
@@ -13,7 +13,7 @@
       "degree_distribution": {
         "name": "poisson",
         "params": {
-          "lambda": 5
+          "lambda": 10
         }
       }
     }
@@ -26,7 +26,7 @@
   },
   "integrator": {
     "tmin": 0.0,
-    "tmax": 205000.0,
+    "tmax": 105000,
     "dt": 0.01,
     "stats_every": 200,
     "state_every": 200,
