@@ -44,24 +44,47 @@ def F(x, t, p: DoubleWellNetworkParams) -> np.ndarray:
     return drift.reshape(-1)
 
 
-STATS_FIELDS = ["step", "t", "mean_x1", "mean_x1_abs", "mean_x2", "mean_x1_sq", "mean_x2_sq"]
+STATS_FIELDS = [
+    "step",
+    "t",
+    "mean_x1",
+    "mean_x1_abs",
+    "deg_weighted_mean_x1",
+    "deg_weighted_mean_x1_abs",
+    "deg_weighted_mean_x2",
+    "deg_weighted_mean_x1x2",
+    "deg_weighted_mean_x1x2_x1sq_minus1",
+]
 
 
 def compute_stats(x, t, step, p):
     n = x.size // 2
     X = x.reshape(n, 2)
     mean_x1 = float(np.mean(X[:, 0]))
-    mean_x2 = float(np.mean(X[:, 1]))
-    mean_x1_sq = float(np.mean(X[:, 0] * X[:, 0]))
-    mean_x2_sq = float(np.mean(X[:, 1] * X[:, 1]))
+    deg = p.deg
+    if deg is None:
+        deg = np.asarray(p.A.sum(axis=1)).reshape(-1)
+    deg_sum = float(np.sum(deg))
+    if deg_sum <= 0:
+        raise ValueError("Degree sum must be positive for weighted stats.")
+    x1 = X[:, 0]
+    x2 = X[:, 1]
+    deg_weighted_mean_x1 = float(np.dot(deg, x1) / deg_sum)
+    deg_weighted_mean_x2 = float(np.dot(deg, x2) / deg_sum)
+    deg_weighted_mean_x1x2 = float(np.dot(deg, x1 * x2) / deg_sum)
+    deg_weighted_mean_x1x2_x1sq_minus1 = float(
+        np.dot(deg, x1 * x2 * (x1 * x1 - 1.0)) / deg_sum
+    )
     return {
         "step": int(step),
         "t": float(t),
         "mean_x1": mean_x1,
         "mean_x1_abs": float(abs(mean_x1)),
-        "mean_x2": mean_x2,
-        "mean_x1_sq": mean_x1_sq,
-        "mean_x2_sq": mean_x2_sq,
+        "deg_weighted_mean_x1": deg_weighted_mean_x1,
+        "deg_weighted_mean_x1_abs": float(abs(deg_weighted_mean_x1)),
+        "deg_weighted_mean_x2": deg_weighted_mean_x2,
+        "deg_weighted_mean_x1x2": deg_weighted_mean_x1x2,
+        "deg_weighted_mean_x1x2_x1sq_minus1": deg_weighted_mean_x1x2_x1sq_minus1,
     }
 
 
