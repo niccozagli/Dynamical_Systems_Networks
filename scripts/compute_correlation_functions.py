@@ -126,6 +126,13 @@ def _load_final_x1(state_path: Path) -> np.ndarray:
     return x
 
 
+def _load_degrees(config_path: Path) -> np.ndarray:
+    config = _load_config(config_path)
+    A = prepare_network(config)
+    deg = np.asarray(A.sum(axis=1)).reshape(-1)
+    return deg
+
+
 def _aggregate_and_save(
     *,
     base_dir: Path,
@@ -401,10 +408,12 @@ def main():
 
     # Empirical measure at final timestep for critical and far (one graph per N)
     settings_for_empirical = ["critical", "far"]
-    fig, axes = plt.subplots(nrows=len(settings_for_empirical), figsize=(8, 4 * len(settings_for_empirical)), sharex=True)
+    fig, axes = plt.subplots(nrows=len(settings_for_empirical), ncols=2, figsize=(12, 4 * len(settings_for_empirical)), sharex=True)
     if len(settings_for_empirical) == 1:
         axes = [axes]
-    for ax, setting in zip(axes, settings_for_empirical):
+    for row_ax, setting in zip(axes, settings_for_empirical):
+        ax_unw = row_ax[0]
+        ax_w = row_ax[1]
         setting_dir = base_dir / setting
         if not setting_dir.exists():
             continue
@@ -416,7 +425,10 @@ def main():
             if graph_dir is None:
                 continue
             state_path = graph_dir / "state.h5"
+            config_path = graph_dir / "config_used.json"
             if not state_path.exists():
+                continue
+            if not config_path.exists():
                 continue
             try:
                 x = _load_final_x1(state_path)
@@ -433,11 +445,29 @@ def main():
             color = cmap(frac)
             hist, bin_edges = np.histogram(x1, bins=60, density=True)
             centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
-            ax.plot(centers, hist, color=color, label=f"N={n_val} ({graph_dir.name})")
-        ax.set_title(setting)
-        ax.set_ylabel("empirical density")
-        ax.legend(frameon=False)
-    axes[-1].set_xlabel("x1 (final)")
+            ax_unw.plot(centers, hist, color=color, label=f"N={n_val} ({graph_dir.name})")
+
+            # Degree-weighted histogram
+            try:
+                deg = _load_degrees(config_path)
+                if deg.size != x1.size:
+                    raise ValueError("Degree size does not match x1 size.")
+                hist_w, bin_edges_w = np.histogram(x1, bins=60, weights=deg, density=False)
+                if hist_w.sum() > 0:
+                    hist_w = hist_w / hist_w.sum() / np.diff(bin_edges_w)
+                centers_w = 0.5 * (bin_edges_w[:-1] + bin_edges_w[1:])
+                ax_w.plot(centers_w, hist_w, color=color, label=f"N={n_val} ({graph_dir.name})")
+            except Exception as exc:
+                print(f"Skip weighted histogram {config_path}: {exc}")
+
+        ax_unw.set_title(f"{setting} (unweighted)")
+        ax_unw.set_ylabel("empirical density")
+        ax_unw.legend(frameon=False)
+        ax_w.set_title(f"{setting} (degree-weighted)")
+        ax_w.legend(frameon=False)
+
+    axes[-1][0].set_xlabel("x1 (final)")
+    axes[-1][1].set_xlabel("x1 (final)")
     fig.tight_layout()
     summary_dir = base_dir / "correlation_functions_summary"
     summary_dir.mkdir(parents=True, exist_ok=True)
