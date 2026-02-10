@@ -297,6 +297,8 @@ def main():
                         help="Plot filename (saved under base-dir).")
     parser.add_argument("--t-max", type=float, default=2000.0,
                         help="Max time shown/saved for the correlation function.")
+    parser.add_argument("--with-degree-weighted", action="store_true",
+                        help="Also compute degree-weighted observables from state.h5.")
     args = parser.parse_args()
 
     base_dir = Path(args.base_dir)
@@ -331,20 +333,54 @@ def main():
         ylabel="corr(mean_x1)",
     )
 
-    _aggregate_and_save(
-        base_dir=base_dir,
-        settings=args.settings,
-        n_vals=args.Ns,
-        transient=args.transient,
-        t_max=args.t_max,
-        output_name="correlation_degree_weighted_mean_x1.h5",
-        stat_name="degree_weighted_mean_x1",
-        compute_fn=_compute_degree_corr,
-        plot_name="correlation_degree_weighted_mean_x1.png",
-        normalized_plot_name="correlation_degree_weighted_mean_x1_normalized.png",
-        tau_plot_name="correlation_time_degree_weighted_mean_x1_normalized.png",
-        ylabel="corr(degree-weighted mean_x1)",
-    )
+    if args.with_degree_weighted:
+        _aggregate_and_save(
+            base_dir=base_dir,
+            settings=args.settings,
+            n_vals=args.Ns,
+            transient=args.transient,
+            t_max=args.t_max,
+            output_name="correlation_degree_weighted_mean_x1.h5",
+            stat_name="degree_weighted_mean_x1",
+            compute_fn=_compute_degree_corr,
+            plot_name="correlation_degree_weighted_mean_x1.png",
+            normalized_plot_name="correlation_degree_weighted_mean_x1_normalized.png",
+            tau_plot_name="correlation_time_degree_weighted_mean_x1_normalized.png",
+            ylabel="corr(degree-weighted mean_x1)",
+        )
+
+    # Plot representative mean_x1 time series for critical setting (one graph per N)
+    critical_dir = base_dir / "critical"
+    if critical_dir.exists():
+        fig, ax = plt.subplots(figsize=(8, 4))
+        for n_val in args.Ns:
+            n_dir = critical_dir / f"n{n_val}"
+            graph_dir = next(iter(sorted(n_dir.glob("graph_*"))), None)
+            if graph_dir is None:
+                continue
+            stats_path = graph_dir / "stats.h5"
+            if not stats_path.exists():
+                continue
+            try:
+                data, fieldnames = _read_stats(stats_path)
+                t_idx = fieldnames.index("t")
+                x_idx = fieldnames.index("mean_x1")
+            except Exception as exc:
+                print(f"Skip {stats_path}: {exc}")
+                continue
+            t = data[:, t_idx]
+            x = data[:, x_idx]
+            ax.plot(t, x, label=f"N={n_val} ({graph_dir.name})")
+        ax.set_title("Representative mean_x1 (critical)")
+        ax.set_xlabel("t")
+        ax.set_ylabel("mean_x1")
+        ax.legend(frameon=False)
+        fig.tight_layout()
+        summary_dir = base_dir / "correlation_functions_summary"
+        summary_dir.mkdir(parents=True, exist_ok=True)
+        plot_path = summary_dir / "critical_mean_x1_timeseries.png"
+        fig.savefig(plot_path, dpi=200, bbox_inches="tight")
+        print(f"Saved plot {plot_path}")
 
 
 if __name__ == "__main__":
