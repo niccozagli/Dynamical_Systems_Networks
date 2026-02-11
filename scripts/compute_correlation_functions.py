@@ -333,7 +333,7 @@ def main():
         ylabel="corr(deg_weighted_mean_x1)",
     )
 
-    # Plot representative mean_x1 time series for critical setting (one graph per N)
+    # Plot degree-weighted mean_x1 time series for critical setting (all graphs per N)
     critical_dir = base_dir / "critical"
     if critical_dir.exists():
         n_vals = [n for n in args.Ns if (critical_dir / f"n{n}").exists()]
@@ -343,33 +343,33 @@ def main():
                 axes = [axes]
             for ax, n_val in zip(axes, n_vals):
                 n_dir = critical_dir / f"n{n_val}"
-                graph_dir = next(iter(sorted(n_dir.glob("graph_*"))), None)
-                if graph_dir is None:
+                graph_dirs = sorted(n_dir.glob("graph_*"))
+                if not graph_dirs:
                     continue
-                stats_path = graph_dir / "stats.h5"
-                if not stats_path.exists():
-                    continue
-                try:
-                    data, fieldnames = _read_stats(stats_path)
-                    t_idx = fieldnames.index("t")
-                    x_idx = fieldnames.index("mean_x1")
-                except Exception as exc:
-                    print(f"Skip {stats_path}: {exc}")
-                    continue
-                t = data[:, t_idx]
-                x = data[:, x_idx]
-                mask = t > float(args.transient)
-                t = t[mask]
-                x = x[mask]
-                ax.plot(t, x, label=f"N={n_val} ({graph_dir.name})")
-                ax.set_ylabel("mean_x1")
-                ax.legend(frameon=False)
-            axes[0].set_title("Representative mean_x1 (critical, post-transient)")
+                for graph_dir in graph_dirs:
+                    stats_path = graph_dir / "stats.h5"
+                    if not stats_path.exists():
+                        continue
+                    try:
+                        data, fieldnames = _read_stats(stats_path)
+                        t_idx = fieldnames.index("t")
+                        x_idx = fieldnames.index("deg_weighted_mean_x1")
+                    except Exception as exc:
+                        print(f"Skip {stats_path}: {exc}")
+                        continue
+                    t = data[:, t_idx]
+                    x = data[:, x_idx]
+                    mask = t > float(args.transient)
+                    t = t[mask]
+                    x = x[mask]
+                    ax.plot(t, x, alpha=0.6)
+                ax.set_ylabel("deg_weighted_mean_x1")
+            axes[0].set_title("Degree-weighted mean_x1 (critical, all graphs, post-transient)")
             axes[-1].set_xlabel("t")
             fig.tight_layout()
             summary_dir = base_dir / "correlation_functions_summary"
             summary_dir.mkdir(parents=True, exist_ok=True)
-            plot_path = summary_dir / "critical_mean_x1_timeseries.png"
+            plot_path = summary_dir / "critical_deg_weighted_mean_x1_timeseries.png"
             fig.savefig(plot_path, dpi=200, bbox_inches="tight")
             print(f"Saved plot {plot_path}")
 
