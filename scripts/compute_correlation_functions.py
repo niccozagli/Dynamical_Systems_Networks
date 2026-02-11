@@ -135,6 +135,7 @@ def _aggregate_and_save(
 ):
     results = {setting: {} for setting in settings}
     tau_norm_results = {setting: {} for setting in settings}
+    graph_tau_results = {setting: {} for setting in settings}
 
     for setting in settings:
         for n_val in n_vals:
@@ -161,6 +162,21 @@ def _aggregate_and_save(
 
                 corrs.append(corr)
                 graph_count += 1
+
+                # Per-graph tau from normalized correlation
+                t_graph = np.arange(len(corr)) * dt
+                if t_max is not None:
+                    mask = t_graph <= float(t_max)
+                    if not np.any(mask):
+                        continue
+                    corr_g = corr[mask]
+                    t_g = t_graph[mask]
+                else:
+                    corr_g = corr
+                    t_g = t_graph
+                if corr_g.size > 0 and corr_g[0] != 0:
+                    tau_g = float(np.trapz(corr_g / corr_g[0], t_g))
+                    graph_tau_results[setting].setdefault(n_val, []).append(tau_g)
 
             if not corrs:
                 continue
@@ -279,6 +295,31 @@ def _aggregate_and_save(
         axes[-1].set_xlabel("N")
         fig.tight_layout()
         tau_plot_path = summary_dir / tau_plot_name
+        fig.savefig(tau_plot_path, dpi=200, bbox_inches="tight")
+        print(f"Saved plot {tau_plot_path}")
+
+    # Scatter of per-graph tau (red) with mean tau (blue) per N
+    if any(graph_tau_results.values()):
+        fig, axes = plt.subplots(nrows=len(settings), figsize=(6, 3.5 * len(settings)), sharex=True)
+        if len(settings) == 1:
+            axes = [axes]
+
+        for ax, setting in zip(axes, settings):
+            n_vals = sorted(graph_tau_results.get(setting, {}).keys())
+            if not n_vals:
+                continue
+            for n_val in n_vals:
+                taus = graph_tau_results[setting].get(n_val, [])
+                if taus:
+                    ax.scatter([n_val] * len(taus), taus, color="red", alpha=0.6, s=12)
+                if n_val in tau_norm_results.get(setting, {}):
+                    ax.plot(n_val, tau_norm_results[setting][n_val], marker="o", color="blue")
+            ax.set_title(setting)
+            ax.set_ylabel(r"$\tau_{\mathrm{corr}}$")
+
+        axes[-1].set_xlabel("N")
+        fig.tight_layout()
+        tau_plot_path = summary_dir / "correlation_time_normalized_per_graph.png"
         fig.savefig(tau_plot_path, dpi=200, bbox_inches="tight")
         print(f"Saved plot {tau_plot_path}")
 
