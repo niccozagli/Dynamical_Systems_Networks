@@ -424,6 +424,44 @@ def main():
             fig.savefig(plot_path, dpi=200, bbox_inches="tight")
             print(f"Saved plot {plot_path}")
 
+    # Correlation functions per graph (critical only), one subplot per N
+    critical_dir = base_dir / "critical"
+    if critical_dir.exists():
+        n_vals = [n for n in args.Ns if (critical_dir / f"n{n}").exists()]
+        if n_vals:
+            fig, axes = plt.subplots(nrows=len(n_vals), figsize=(8, 3 * len(n_vals)), sharex=True)
+            if len(n_vals) == 1:
+                axes = [axes]
+            for ax, n_val in zip(axes, n_vals):
+                n_dir = critical_dir / f"n{n_val}"
+                graph_dirs = sorted(n_dir.glob("graph_*"))
+                if not graph_dirs:
+                    continue
+                for graph_dir in graph_dirs:
+                    stats_path = graph_dir / "stats.h5"
+                    if not stats_path.exists():
+                        continue
+                    try:
+                        corr, dt = _compute_corr_from_stats(stats_path, args.transient)
+                    except Exception as exc:
+                        print(f"Skip {stats_path}: {exc}")
+                        continue
+                    t = np.arange(len(corr)) * dt
+                    if args.t_max is not None:
+                        mask = t <= float(args.t_max)
+                        t = t[mask]
+                        corr = corr[mask]
+                    ax.plot(t, corr, alpha=0.6)
+                ax.set_title(f"critical N={n_val}")
+                ax.set_ylabel("corr")
+            axes[-1].set_xlabel("t")
+            fig.tight_layout()
+            summary_dir = base_dir / "correlation_functions_summary"
+            summary_dir.mkdir(parents=True, exist_ok=True)
+            plot_path = summary_dir / "critical_corr_per_graph.png"
+            fig.savefig(plot_path, dpi=200, bbox_inches="tight")
+            print(f"Saved plot {plot_path}")
+
     # Empirical measure at final timestep for critical and far (one graph per N)
     settings_for_empirical = ["critical", "far"]
     fig, axes = plt.subplots(nrows=len(settings_for_empirical), ncols=2, figsize=(12, 4 * len(settings_for_empirical)), sharex=True)
