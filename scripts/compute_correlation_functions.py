@@ -338,14 +338,14 @@ def main():
     if critical_dir.exists():
         n_vals = [n for n in args.Ns if (critical_dir / f"n{n}").exists()]
         if n_vals:
-            fig, axes = plt.subplots(nrows=len(n_vals), figsize=(8, 3 * len(n_vals)), sharex=True)
-            if len(n_vals) == 1:
-                axes = [axes]
-            for ax, n_val in zip(axes, n_vals):
+            fig, ax = plt.subplots(figsize=(8, 4))
+            for n_val in n_vals:
                 n_dir = critical_dir / f"n{n_val}"
                 graph_dirs = sorted(n_dir.glob("graph_*"))
                 if not graph_dirs:
                     continue
+                series = []
+                t_ref = None
                 for graph_dir in graph_dirs:
                     stats_path = graph_dir / "stats.h5"
                     if not stats_path.exists():
@@ -362,10 +362,20 @@ def main():
                     mask = t > float(args.transient)
                     t = t[mask]
                     x = x[mask]
-                    ax.plot(t, x, alpha=0.6)
-                ax.set_ylabel("deg_weighted_mean_x1")
-            axes[0].set_title("Degree-weighted mean_x1 (critical, all graphs, post-transient)")
-            axes[-1].set_xlabel("t")
+                    if t_ref is None:
+                        t_ref = t
+                    elif len(t) != len(t_ref) or np.max(np.abs(t - t_ref)) > 1e-8:
+                        print(f"Skip {stats_path}: time grid mismatch")
+                        continue
+                    series.append(x)
+                if not series or t_ref is None:
+                    continue
+                mean_series = np.mean(np.stack(series, axis=0), axis=0)
+                ax.plot(t_ref, mean_series, label=f"N={n_val}")
+            ax.set_title("Degree-weighted mean_x1 (critical, mean over graphs, post-transient)")
+            ax.set_xlabel("t")
+            ax.set_ylabel("deg_weighted_mean_x1")
+            ax.legend(frameon=False)
             fig.tight_layout()
             summary_dir = base_dir / "correlation_functions_summary"
             summary_dir.mkdir(parents=True, exist_ok=True)
