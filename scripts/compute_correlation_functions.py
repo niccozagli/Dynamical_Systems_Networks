@@ -451,6 +451,8 @@ def main():
                         mask = t <= float(args.t_max)
                         t = t[mask]
                         corr = corr[mask]
+                    if corr.size > 0 and corr[0] != 0:
+                        corr = corr / corr[0]
                     ax.plot(t, corr, alpha=0.6)
                 ax.set_title(f"critical N={n_val}")
                 ax.set_ylabel("corr")
