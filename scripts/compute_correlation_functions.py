@@ -28,7 +28,7 @@ def _compute_corr_from_stats(stats_path: Path, transient: float):
     data, fieldnames = _read_stats(stats_path)
     try:
         t_idx = fieldnames.index("t")
-        x_idx = fieldnames.index("mean_x1")
+        x_idx = fieldnames.index("deg_weighted_mean_x1")
     except ValueError as exc:
         raise ValueError(f"Required fields not found in {stats_path}: {exc}")
 
@@ -64,56 +64,6 @@ def _save_corr(output_path: Path, t: np.ndarray, corr_mean: np.ndarray, corr_std
 
 def _load_config(config_path: Path) -> dict:
     return json.loads(config_path.read_text())
-
-
-def _compute_corr_degree_weighted(state_path: Path, config_path: Path, transient: float):
-    config = _load_config(config_path)
-    A = prepare_network(config)
-    degrees = np.asarray(A.sum(axis=1)).reshape(-1)
-    deg_sum = float(degrees.sum())
-    if deg_sum <= 0:
-        raise ValueError(f"Non-positive degree sum for {config_path}")
-
-    with h5py.File(state_path, "r") as h5f:
-        state_dset = h5f["state"]
-        time_dset = h5f["time"]
-        times = np.asarray(time_dset[...], dtype=float)
-
-        indices = np.where(times > float(transient))[0]
-        if indices.size == 0:
-            raise ValueError(f"No samples with t > transient in {state_path}")
-
-        dt = float(times[indices[1]] - times[indices[0]]) if indices.size > 1 else 0.0
-        signal = np.empty(indices.size, dtype=float)
-
-        if state_dset.ndim == 3:
-            for j, idx in enumerate(indices):
-                x1 = np.asarray(state_dset[int(idx), :, 0], dtype=float)
-                signal[j] = float(np.dot(degrees, x1) / deg_sum)
-        elif state_dset.ndim == 2:
-            row = np.asarray(state_dset[int(indices[0]), :], dtype=float).reshape(-1)
-            dim = row.size
-            n_nodes = degrees.size
-            if dim == n_nodes:
-                for j, idx in enumerate(indices):
-                    x1 = np.asarray(state_dset[int(idx), :], dtype=float).reshape(-1)
-                    signal[j] = float(np.dot(degrees, x1) / deg_sum)
-            elif dim == 2 * n_nodes:
-                for j, idx in enumerate(indices):
-                    x = np.asarray(state_dset[int(idx), :], dtype=float).reshape(n_nodes, 2)
-                    x1 = x[:, 0]
-                    signal[j] = float(np.dot(degrees, x1) / deg_sum)
-            else:
-                raise ValueError(
-                    f"State dimension {dim} does not match N={n_nodes} or 2N in {state_path}"
-                )
-        else:
-            raise ValueError(f"Unexpected state dataset shape {state_dset.shape} in {state_path}")
-
-    signal = signal - np.mean(signal)
-    corr = correlate(signal, signal, mode="full")
-    corr = corr[corr.size // 2 :] / signal.size
-    return corr, dt
 
 
 def _load_final_x1(state_path: Path) -> np.ndarray:
@@ -343,14 +293,12 @@ def main():
                         help="Network sizes to process.")
     parser.add_argument("--transient", type=float, default=5000.0,
                         help="Transient time to discard.")
-    parser.add_argument("--output-name", default="correlation_mean_x1.h5",
+    parser.add_argument("--output-name", default="correlation_degree_weighted_mean_x1.h5",
                         help="Output filename to store averaged correlation.")
-    parser.add_argument("--plot-name", default="correlation_mean_x1.png",
+    parser.add_argument("--plot-name", default="correlation_degree_weighted_mean_x1.png",
                         help="Plot filename (saved under base-dir).")
     parser.add_argument("--t-max", type=float, default=2000.0,
                         help="Max time shown/saved for the correlation function.")
-    parser.add_argument("--with-degree-weighted", action="store_true",
-                        help="Also compute degree-weighted observables from state.h5.")
     args = parser.parse_args()
 
     base_dir = Path(args.base_dir)
@@ -377,28 +325,12 @@ def main():
         transient=args.transient,
         t_max=args.t_max,
         output_name=args.output_name,
-        stat_name="mean_x1",
+        stat_name="deg_weighted_mean_x1",
         compute_fn=_compute_stats_corr,
         plot_name=args.plot_name,
-        normalized_plot_name="correlation_mean_x1_normalized.png",
-        tau_plot_name="correlation_time_normalized.png",
-        ylabel="corr(mean_x1)",
-    )
-
-    if args.with_degree_weighted:
-        _aggregate_and_save(
-            base_dir=base_dir,
-            settings=args.settings,
-            n_vals=args.Ns,
-            transient=args.transient,
-            t_max=args.t_max,
-            output_name="correlation_degree_weighted_mean_x1.h5",
-            stat_name="degree_weighted_mean_x1",
-            compute_fn=_compute_degree_corr,
-            plot_name="correlation_degree_weighted_mean_x1.png",
-            normalized_plot_name="correlation_degree_weighted_mean_x1_normalized.png",
-            tau_plot_name="correlation_time_degree_weighted_mean_x1_normalized.png",
-        ylabel="corr(degree-weighted mean_x1)",
+        normalized_plot_name="correlation_degree_weighted_mean_x1_normalized.png",
+        tau_plot_name="correlation_time_degree_weighted_mean_x1_normalized.png",
+        ylabel="corr(deg_weighted_mean_x1)",
     )
 
     # Plot representative mean_x1 time series for critical setting (one graph per N)
