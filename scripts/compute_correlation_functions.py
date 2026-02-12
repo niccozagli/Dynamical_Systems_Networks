@@ -42,10 +42,7 @@ def _compute_corr_from_stats(stats_path: Path, transient: float):
     signal = signal[mask]
     dt = float(t[1] - t[0]) if len(t) > 1 else 0.0
 
-    signal = signal - np.mean(signal)
-    corr = correlate(signal, signal, mode="full")
-    corr = corr[corr.size // 2 :] / signal.size
-    return corr, dt
+    return t, signal, dt
 
 
 def _save_corr(output_path: Path, t: np.ndarray, corr_mean: np.ndarray, corr_std: np.ndarray, *,
@@ -133,8 +130,11 @@ def _aggregate_and_save(
     tau_plot_name: str,
     ylabel: str,
 ):
-    results = {setting: {} for setting in settings}
-    tau_norm_results = {setting: {} for setting in settings}
+    results_annealed = {setting: {} for setting in settings}
+    results_quenched = {setting: {} for setting in settings}
+    graph_corr_results = {setting: {} for setting in settings}
+    tau_annealed_results = {setting: {} for setting in settings}
+    tau_quenched_results = {setting: {} for setting in settings}
     graph_tau_results = {setting: {} for setting in settings}
 
     for setting in settings:
@@ -143,13 +143,15 @@ def _aggregate_and_save(
             if not n_dir.exists():
                 continue
 
-            corrs = []
+            series_list = []
+            corr_norm_list = []
             dt_ref = None
+            t_ref = None
             graph_count = 0
 
             for graph_dir in sorted(n_dir.glob("graph_*")):
                 try:
-                    corr, dt = compute_fn(graph_dir, transient)
+                    t_series, x_series, dt = compute_fn(graph_dir, transient)
                 except Exception as exc:
                     print(f"Skip {graph_dir}: {exc}")
                     continue
@@ -160,10 +162,25 @@ def _aggregate_and_save(
                     print(f"Skip {graph_dir}: dt mismatch ({dt} vs {dt_ref})")
                     continue
 
-                corrs.append(corr)
+                # Align time grids across graphs
+                if not series_list:
+                    t_ref = t_series
+                else:
+                    if len(t_series) != len(t_ref) or np.max(np.abs(t_series - t_ref)) > 1e-8:
+                        print(f"Skip {graph_dir}: time grid mismatch")
+                        continue
+                series_list.append(x_series)
                 graph_count += 1
 
                 # Per-graph tau from normalized correlation
+                signal = x_series - np.mean(x_series)
+                corr = correlate(signal, signal, mode="full")
+                corr = corr[corr.size // 2 :] / signal.size
+                if corr.size > 0 and corr[0] != 0:
+                    corr_norm = corr / corr[0]
+                else:
+                    corr_norm = corr
+                corr_norm_list.append(corr_norm)
                 t_graph = np.arange(len(corr)) * dt
                 if t_max is not None:
                     mask = t_graph <= float(t_max)
@@ -178,148 +195,156 @@ def _aggregate_and_save(
                     tau_g = float(np.trapz(corr_g / corr_g[0], t_g))
                     graph_tau_results[setting].setdefault(n_val, []).append(tau_g)
 
-            if not corrs:
+            if not series_list:
                 continue
 
-            min_len = min(len(c) for c in corrs)
-            corr_stack = np.stack([c[:min_len] for c in corrs], axis=0)
-            corr_mean = corr_stack.mean(axis=0)
-            if corr_stack.shape[0] > 1:
-                corr_std = corr_stack.std(axis=0, ddof=1)
+            # Average order parameter across graphs (annealed), then compute correlation
+            mean_series = np.mean(np.stack(series_list, axis=0), axis=0)
+            signal = mean_series - np.mean(mean_series)
+            corr_mean = correlate(signal, signal, mode="full")
+            corr_mean = corr_mean[corr_mean.size // 2 :] / signal.size
+            if corr_mean.size > 0 and corr_mean[0] != 0:
+                corr_mean_norm = corr_mean / corr_mean[0]
             else:
-                corr_std = np.zeros_like(corr_mean)
+                corr_mean_norm = corr_mean
 
             dt_ref = dt_ref or 0.0
-            t = np.arange(min_len) * dt_ref
+            t = np.arange(len(corr_mean_norm)) * dt_ref
             if t_max is not None:
                 mask = t <= float(t_max)
                 if not np.any(mask):
                     print(f"Skip {n_dir}: no samples within t_max={t_max}")
                     continue
                 t = t[mask]
-                corr_mean = corr_mean[mask]
-                corr_std = corr_std[mask]
+                corr_mean_norm = corr_mean_norm[mask]
 
+            results_annealed[setting][n_val] = (t, corr_mean_norm)
+            if corr_mean_norm.size > 0 and t.size > 0:
+                tau_annealed_results[setting][n_val] = float(np.trapz(corr_mean_norm, t))
+
+            # Quenched average: average normalized correlations across graphs
+            if corr_norm_list:
+                min_len = min(len(c) for c in corr_norm_list)
+                corr_norm_stack = np.stack([c[:min_len] for c in corr_norm_list], axis=0)
+                corr_quenched = corr_norm_stack.mean(axis=0)
+                t_q = np.arange(min_len) * dt_ref
+                if t_max is not None:
+                    mask = t_q <= float(t_max)
+                    if not np.any(mask):
+                        print(f"Skip {n_dir}: no samples within t_max={t_max}")
+                        continue
+                    t_q = t_q[mask]
+                    corr_quenched = corr_quenched[mask]
+                results_quenched[setting][n_val] = (t_q, corr_quenched)
+                if corr_quenched.size > 0:
+                    tau_quenched_results[setting][n_val] = float(np.trapz(corr_quenched, t_q))
+
+            # Save quenched correlation (average over graphs) to disk
             output_path = n_dir / output_name
             _save_corr(
                 output_path,
                 t,
-                corr_mean,
-                corr_std,
+                corr_mean_norm,
+                np.zeros_like(corr_mean_norm),
                 graph_count=graph_count,
                 transient=transient,
                 t_max=t_max,
                 stat_name=stat_name,
             )
             print(f"Saved {output_path} (graphs={graph_count})")
-            results[setting][n_val] = (t, corr_mean, corr_std)
+
+            # Store per-graph correlations for plotting
+            graph_corr_results[setting].setdefault(n_val, [])
+            for corr_norm in corr_norm_list:
+                t_g = np.arange(len(corr_norm)) * dt_ref
+                if t_max is not None:
+                    mask = t_g <= float(t_max)
+                    if not np.any(mask):
+                        continue
+                    t_g = t_g[mask]
+                    corr_norm = corr_norm[mask]
+                graph_corr_results[setting][n_val].append((t_g, corr_norm))
 
     summary_dir = base_dir / "correlation_functions_summary"
     summary_dir.mkdir(parents=True, exist_ok=True)
 
-    if any(results.values()):
-        fig, axes = plt.subplots(nrows=len(settings), figsize=(8, 4 * len(settings)), sharex=True)
-        if len(settings) == 1:
-            axes = [axes]
-
-        for ax, setting in zip(axes, settings):
-            n_vals = sorted(results.get(setting, {}).keys())
+    # Quenched: per-graph correlations (C(t)/C(0)), one subplot per N
+    if any(graph_corr_results.values()):
+        for setting in settings:
+            n_vals = sorted(graph_corr_results.get(setting, {}).keys())
             if not n_vals:
                 continue
-            cmap = plt.get_cmap("viridis")
-            for i, n_val in enumerate(n_vals):
-                t, corr_mean, corr_std = results[setting][n_val]
-                frac = 0.2 + 0.6 * (i / max(1, len(n_vals) - 1))
-                color = cmap(frac)
-                ax.plot(t, corr_mean, color=color, label=f"N={n_val}")
-                ax.fill_between(t, corr_mean - corr_std, corr_mean + corr_std, color=color, alpha=0.2)
+            fig, axes = plt.subplots(nrows=len(n_vals), figsize=(8, 3 * len(n_vals)), sharex=True)
+            if len(n_vals) == 1:
+                axes = [axes]
+            for ax, n_val in zip(axes, n_vals):
+                for t_g, corr_g in graph_corr_results[setting][n_val]:
+                    ax.plot(t_g, corr_g, alpha=0.3)
+                ax.set_title(f"{setting} N={n_val} (quenched)")
+                ax.set_ylabel("C(t)/C(0)")
+            axes[-1].set_xlabel("t")
+            fig.tight_layout()
+            plot_path = summary_dir / f"{Path(plot_name).stem}_quenched_{setting}.png"
+            fig.savefig(plot_path, dpi=200, bbox_inches="tight")
+            print(f"Saved plot {plot_path}")
 
-            ax.set_title(setting)
-            ax.set_ylabel(ylabel)
-            ax.legend(frameon=False)
-
-        axes[-1].set_xlabel("t")
-        fig.tight_layout()
-        plot_path = summary_dir / plot_name
-        fig.savefig(plot_path, dpi=200, bbox_inches="tight")
-        print(f"Saved plot {plot_path}")
-
-        fig, axes = plt.subplots(nrows=len(settings), figsize=(8, 4 * len(settings)), sharex=True)
-        if len(settings) == 1:
-            axes = [axes]
-
-        for ax, setting in zip(axes, settings):
-            n_vals = sorted(results.get(setting, {}).keys())
+    # Annealed: correlation of the average order parameter, one subplot per N
+    if any(results_annealed.values()):
+        for setting in settings:
+            n_vals = sorted(results_annealed.get(setting, {}).keys())
             if not n_vals:
                 continue
-            cmap = plt.get_cmap("viridis")
-            for i, n_val in enumerate(n_vals):
-                t, corr_mean, corr_std = results[setting][n_val]
-                if corr_mean.size == 0:
-                    continue
-                norm = corr_mean[0]
-                if norm == 0:
-                    continue
-                corr_mean_n = corr_mean / norm
-                corr_std_n = corr_std / abs(norm)
-                frac = 0.2 + 0.6 * (i / max(1, len(n_vals) - 1))
-                color = cmap(frac)
-                ax.plot(t, corr_mean_n, color=color, label=f"N={n_val}")
-                ax.fill_between(t, corr_mean_n - corr_std_n, corr_mean_n + corr_std_n, color=color, alpha=0.2)
-                tau_norm_results[setting][n_val] = float(np.trapz(corr_mean_n, t))
+            fig, axes = plt.subplots(nrows=len(n_vals), figsize=(8, 3 * len(n_vals)), sharex=True)
+            if len(n_vals) == 1:
+                axes = [axes]
+            for ax, n_val in zip(axes, n_vals):
+                t, corr_mean_norm = results_annealed[setting][n_val]
+                ax.plot(t, corr_mean_norm, color="C0")
+                ax.set_title(f"{setting} N={n_val} (annealed)")
+                ax.set_ylabel("C(t)/C(0)")
+            axes[-1].set_xlabel("t")
+            fig.tight_layout()
+            plot_path = summary_dir / f"{Path(normalized_plot_name).stem}_annealed_{setting}.png"
+            fig.savefig(plot_path, dpi=200, bbox_inches="tight")
+            print(f"Saved plot {plot_path}")
 
-            ax.set_title(f"{setting} (normalized)")
-            ax.set_ylabel("C(t) / C(0)")
-            ax.legend(frameon=False)
-
-        axes[-1].set_xlabel("t")
-        fig.tight_layout()
-        plot_path = summary_dir / normalized_plot_name
-        fig.savefig(plot_path, dpi=200, bbox_inches="tight")
-        print(f"Saved plot {plot_path}")
-
-    if any(tau_norm_results.values()):
+    # Quenched tau: scatter per graph (red) + avg tau (blue)
+    if any(graph_tau_results.values()):
         fig, axes = plt.subplots(nrows=len(settings), figsize=(6, 3.5 * len(settings)), sharex=True)
         if len(settings) == 1:
             axes = [axes]
-
         for ax, setting in zip(axes, settings):
-            n_vals = sorted(tau_norm_results.get(setting, {}).keys())
-            if not n_vals:
-                continue
-            taus = [tau_norm_results[setting][n] for n in n_vals]
-            ax.plot(n_vals, taus, marker="o")
-            ax.set_title(setting)
+            n_vals = sorted(graph_tau_results.get(setting, {}).keys())
+            for n_val in n_vals:
+                taus = graph_tau_results[setting].get(n_val, [])
+                if taus:
+                    ax.scatter([n_val] * len(taus), taus, color="red", alpha=0.6, s=12)
+                if n_val in tau_quenched_results.get(setting, {}):
+                    ax.plot(n_val, tau_quenched_results[setting][n_val], marker="o", color="blue")
+            ax.set_title(f"{setting} (quenched)")
             ax.set_ylabel(r"$\tau_{\mathrm{corr}}$")
-
         axes[-1].set_xlabel("N")
         fig.tight_layout()
         tau_plot_path = summary_dir / tau_plot_name
         fig.savefig(tau_plot_path, dpi=200, bbox_inches="tight")
         print(f"Saved plot {tau_plot_path}")
 
-    # Scatter of per-graph tau (red) with mean tau (blue) per N
-    if any(graph_tau_results.values()):
+    # Annealed tau: single curve per N
+    if any(tau_annealed_results.values()):
         fig, axes = plt.subplots(nrows=len(settings), figsize=(6, 3.5 * len(settings)), sharex=True)
         if len(settings) == 1:
             axes = [axes]
-
         for ax, setting in zip(axes, settings):
-            n_vals = sorted(graph_tau_results.get(setting, {}).keys())
+            n_vals = sorted(tau_annealed_results.get(setting, {}).keys())
             if not n_vals:
                 continue
-            for n_val in n_vals:
-                taus = graph_tau_results[setting].get(n_val, [])
-                if taus:
-                    ax.scatter([n_val] * len(taus), taus, color="red", alpha=0.6, s=12)
-                if n_val in tau_norm_results.get(setting, {}):
-                    ax.plot(n_val, tau_norm_results[setting][n_val], marker="o", color="blue")
-            ax.set_title(setting)
+            taus = [tau_annealed_results[setting][n] for n in n_vals]
+            ax.plot(n_vals, taus, marker="o", color="blue")
+            ax.set_title(f"{setting} (annealed)")
             ax.set_ylabel(r"$\tau_{\mathrm{corr}}$")
-
         axes[-1].set_xlabel("N")
         fig.tight_layout()
-        tau_plot_path = summary_dir / "correlation_time_normalized_per_graph.png"
+        tau_plot_path = summary_dir / f"{Path(tau_plot_name).stem}_annealed.png"
         fig.savefig(tau_plot_path, dpi=200, bbox_inches="tight")
         print(f"Saved plot {tau_plot_path}")
 
@@ -374,7 +399,7 @@ def main():
         ylabel="corr(deg_weighted_mean_x1)",
     )
 
-    # Plot degree-weighted mean_x1 time series for critical setting (all graphs per N)
+    # Plot annealed order parameter (mean over graphs) for critical setting
     critical_dir = base_dir / "critical"
     if critical_dir.exists():
         n_vals = [n for n in args.Ns if (critical_dir / f"n{n}").exists()]
@@ -413,14 +438,14 @@ def main():
                     continue
                 mean_series = np.mean(np.stack(series, axis=0), axis=0)
                 ax.plot(t_ref, mean_series, label=f"N={n_val}")
-            ax.set_title("Degree-weighted mean_x1 (critical, mean over graphs, post-transient)")
+            ax.set_title("Annealed order parameter (critical, post-transient)")
             ax.set_xlabel("t")
             ax.set_ylabel("deg_weighted_mean_x1")
             ax.legend(frameon=False)
             fig.tight_layout()
             summary_dir = base_dir / "correlation_functions_summary"
             summary_dir.mkdir(parents=True, exist_ok=True)
-            plot_path = summary_dir / "critical_deg_weighted_mean_x1_timeseries.png"
+            plot_path = summary_dir / "critical_deg_weighted_mean_x1_timeseries_annealed.png"
             fig.savefig(plot_path, dpi=200, bbox_inches="tight")
             print(f"Saved plot {plot_path}")
 
@@ -442,10 +467,13 @@ def main():
                     if not stats_path.exists():
                         continue
                     try:
-                        corr, dt = _compute_corr_from_stats(stats_path, args.transient)
+                        t_series, x_series, dt = _compute_corr_from_stats(stats_path, args.transient)
                     except Exception as exc:
                         print(f"Skip {stats_path}: {exc}")
                         continue
+                    signal = x_series - np.mean(x_series)
+                    corr = correlate(signal, signal, mode="full")
+                    corr = corr[corr.size // 2 :] / signal.size
                     t = np.arange(len(corr)) * dt
                     if args.t_max is not None:
                         mask = t <= float(args.t_max)
