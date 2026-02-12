@@ -238,6 +238,7 @@ def worker(
     num_jobs: Annotated[int, typer.Option(help="Total number of jobs.")] = 1,
     flush_every: Annotated[int, typer.Option(help="Flush worker every N samples.")] = 50,
     base_seed: Annotated[int | None, typer.Option(help="Optional RNG seed for response runs.")] = None,
+    sample_dt: Annotated[float | None, typer.Option(help="Optional sampling interval for state.h5 (in time units).")] = None,
 ) -> None:
     if num_workers <= 0 or num_jobs <= 0:
         raise ValueError("--num-workers and --num-jobs must be >= 1")
@@ -247,6 +248,8 @@ def worker(
         raise ValueError("--job-id must be in [0, num-jobs)")
     if flush_every <= 0:
         raise ValueError("--flush-every must be >= 1")
+    if sample_dt is not None and sample_dt <= 0:
+        raise ValueError("--sample-dt must be > 0")
 
     unperturbed_dir = Path(unperturbed_dir)
     state_path = unperturbed_dir / "state.h5"
@@ -302,6 +305,18 @@ def worker(
         indices = np.where(times >= float(transient))[0]
         if indices.size == 0:
             raise ValueError("No samples found with t >= transient.")
+        if sample_dt is not None:
+            sampled = []
+            next_t = times[int(indices[0])]
+            tol = 1e-12
+            for idx in indices:
+                t = times[int(idx)]
+                if t + tol >= next_t:
+                    sampled.append(int(idx))
+                    next_t = t + float(sample_dt)
+            if not sampled:
+                raise ValueError("No samples matched --sample-dt; check dt and sample-dt.")
+            indices = np.asarray(sampled, dtype=int)
 
         for pos, idx in enumerate(indices):
             if pos % total_workers != global_worker_id:
