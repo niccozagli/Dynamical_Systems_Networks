@@ -3,6 +3,7 @@ from typing import cast
 import numpy as np
 from scipy.integrate import quad
 from scipy.optimize import brentq
+from scipy.special import pbdv
 from scipy.stats import poisson
 
 from dyn_net.networks.degree_distributions import (
@@ -190,3 +191,54 @@ def find_theta_c_from_degree_distribution(
         rtol=rtol,
         max_iter=max_iter,
     )
+
+
+def _parabolic_cylinder_D(v: float, z: float) -> float:
+    # scipy.special.pbdv returns (D_v(z), D'_v(z))
+    val, _ = pbdv(v, z)
+    return float(val)
+
+
+def critical_noise_function_all_to_all(theta: float, sigma: float) -> float:
+    """Equation for critical noise strength in all-to-all double well."""
+    if theta <= 0.0:
+        raise ValueError("theta must be positive")
+    if sigma <= 0.0:
+        raise ValueError("sigma must be positive")
+    z = (theta - 1.0) / sigma
+    numerator = _parabolic_cylinder_D(-1.5, z)
+    denominator = _parabolic_cylinder_D(-0.5, z)
+    if denominator == 0.0:
+        return np.inf
+    return (numerator / denominator) - (sigma / theta)
+
+
+def find_sigma_c_all_to_all(
+    theta: float,
+    *,
+    sigma_bracket: tuple[float, float],
+    rtol: float = 1e-6,
+    max_iter: int = 100,
+) -> float:
+    """Solve for sigma_c in the all-to-all double well criticality equation."""
+    if theta <= 0.0:
+        raise ValueError("theta must be positive")
+
+    a, b = sigma_bracket
+    if a <= 0.0 or b <= 0.0:
+        raise ValueError("sigma_bracket entries must be positive")
+
+    def f(sigma: float) -> float:
+        return critical_noise_function_all_to_all(theta, sigma)
+
+    fa = f(a)
+    fb = f(b)
+    if fa == 0.0:
+        return a
+    if fb == 0.0:
+        return b
+    if fa * fb > 0.0:
+        raise ValueError("sigma_bracket does not bracket a root")
+
+    root = brentq(f, a, b, rtol=np.float64(rtol), maxiter=max_iter)
+    return cast(float, root)
