@@ -156,6 +156,49 @@ def main():
     fig.savefig(plot_path, dpi=200, bbox_inches="tight")
     print(f"Saved plot {plot_path}")
 
+    # Overlay annealed vs quenched representative in critical setting (window 20000-25000)
+    critical_dir = base_dir / "critical"
+    if critical_dir.exists():
+        fig, axes = plt.subplots(
+            nrows=2,
+            ncols=len(fields),
+            figsize=(10, 6),
+            sharex=True,
+        )
+        if len(fields) == 1:
+            axes = [axes]
+        for col, (field, label) in enumerate(fields):
+            ax = axes[0][col] if len(fields) > 1 else axes[0]
+            ax2 = axes[1][col] if len(fields) > 1 else axes[1]
+            n_vals = [n for n in args.Ns if n == 10000 and (critical_dir / f"n{n}").exists()]
+            for n_val in n_vals:
+                n_dir = critical_dir / f"n{n_val}"
+                ann = _annealed_series(n_dir, args.transient, field)
+                rep = _representative_series(n_dir, args.transient, field)
+                if ann is None or rep is None:
+                    continue
+                t_a, x_a = ann
+                t_r, x_r = rep
+                # apply window
+                mask_a = (t_a >= 20000) & (t_a <= 25000)
+                mask_r = (t_r >= 20000) & (t_r <= 25000)
+                if np.any(mask_a):
+                    ax.plot(t_a[mask_a], x_a[mask_a], label=f"N={n_val} annealed")
+                if np.any(mask_r):
+                    ax2.plot(t_r[mask_r], x_r[mask_r], label=f"N={n_val} quenched")
+            ax.set_title(f"critical (annealed, {label})")
+            ax2.set_title(f"critical (quenched rep, {label})")
+            ax.set_ylabel(label)
+            ax2.set_ylabel(label)
+            ax.legend(frameon=False)
+            ax2.legend(frameon=False)
+        for col in range(len(fields)):
+            axes[1][col].set_xlabel("t")
+        fig.tight_layout()
+        plot_path = summary_dir / "critical_annealed_vs_quenched_window.png"
+        fig.savefig(plot_path, dpi=200, bbox_inches="tight")
+        print(f"Saved plot {plot_path}")
+
 
 if __name__ == "__main__":
     main()
