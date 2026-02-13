@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class AllToAllParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
     n: int = Field(..., ge=1)
+    seed: int | None = None
 
 
 def build(p: AllToAllParams) -> sparse.spmatrix:
