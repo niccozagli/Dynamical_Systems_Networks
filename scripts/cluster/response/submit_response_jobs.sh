@@ -12,7 +12,8 @@ set -euo pipefail
 #     --num-jobs <J> \
 #     --workers <W> \
 #     --transient <t> \
-#     --flush-every <n>
+#     --flush-every <n> \
+#     --sample-dt <dt>
 #
 # Example:
 #   ./scripts/cluster/response/submit_response_jobs.sh \
@@ -25,7 +26,8 @@ set -euo pipefail
 #     --num-jobs 10 \
 #     --workers 8 \
 #     --transient 5000 \
-#     --flush-every 10
+#     --flush-every 10 \
+#     --sample-dt 10
 
 NETWORK_NAME=""
 SETTING=""
@@ -37,6 +39,7 @@ NUM_JOBS=""
 WORKERS=""
 TRANSIENT=""
 FLUSH_EVERY=""
+SAMPLE_DT=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -50,6 +53,7 @@ while [ "$#" -gt 0 ]; do
     --workers) WORKERS="$2"; shift 2;;
     --transient) TRANSIENT="$2"; shift 2;;
     --flush-every) FLUSH_EVERY="$2"; shift 2;;
+    --sample-dt) SAMPLE_DT="$2"; shift 2;;
     *) echo "Unknown argument: $1"; exit 2;;
   esac
 done
@@ -86,6 +90,9 @@ echo "  num_jobs        = ${NUM_JOBS}"
 echo "  workers         = ${WORKERS}"
 echo "  transient       = ${TRANSIENT}"
 echo "  flush_every     = ${FLUSH_EVERY}"
+if [ -n "$SAMPLE_DT" ]; then
+  echo "  sample_dt       = ${SAMPLE_DT}"
+fi
 echo
 
 for job_id in $(seq 0 $((NUM_JOBS - 1))); do
@@ -97,6 +104,17 @@ for job_id in $(seq 0 $((NUM_JOBS - 1))); do
 --job-id ${job_id} --num-jobs ${NUM_JOBS} \
 --flush-every ${FLUSH_EVERY}" \
     scripts/cluster/response/run_response_cluster_pbs.sh)
+  if [ -n "$SAMPLE_DT" ]; then
+    cmd=(qsub -e trash -o trash -v ARGS="--unperturbed-dir ${unperturbed_dir} \
+--response-config ${response_config} \
+--output-dir ${output_dir} \
+--transient ${TRANSIENT} \
+--workers ${WORKERS} \
+--job-id ${job_id} --num-jobs ${NUM_JOBS} \
+--flush-every ${FLUSH_EVERY} \
+--sample-dt ${SAMPLE_DT}" \
+      scripts/cluster/response/run_response_cluster_pbs.sh)
+  fi
   job_output="$("${cmd[@]}")"
   echo "submitted job_id=${job_id} qsub_id=${job_output}"
 done
