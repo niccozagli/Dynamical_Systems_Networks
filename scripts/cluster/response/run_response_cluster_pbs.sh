@@ -24,11 +24,11 @@ echo
 # Parameters can be passed either via qsub -v ARGS="..." or directly as CLI flags.
 # Example (qsub):
 #   qsub -e trash -o trash -v ARGS="--unperturbed-dir ... --response-config ... --output-dir ... \
-#     --transient 5000 --workers 8 --job-id 0 --num-jobs 4 --flush-every 50" \
+#     --transient 5000 --workers 8 --job-id 0 --num-jobs 4 --flush-every 50 --sample-dt 10" \
 #     scripts/cluster/response/run_response_cluster_pbs.sh
 # Example (direct flags):
 #   qsub -e trash -o trash scripts/cluster/response/run_response_cluster_pbs.sh --unperturbed-dir ... --response-config ... \
-#     --output-dir ... --transient 5000 --workers 8 --job-id 0 --num-jobs 4 --flush-every 50
+#     --output-dir ... --transient 5000 --workers 8 --job-id 0 --num-jobs 4 --flush-every 50 --sample-dt 10
 ARGS="${ARGS:-}"
 if [ "$#" -gt 0 ]; then
   argv=("$@")
@@ -82,6 +82,7 @@ JOB_ID="0"
 NUM_JOBS="1"
 FLUSH_EVERY="50"
 BASE_SEED=""
+SAMPLE_DT=""
 
 set -- "${argv[@]}"
 while [ "$#" -gt 0 ]; do
@@ -95,6 +96,7 @@ while [ "$#" -gt 0 ]; do
     --num-jobs) NUM_JOBS="$2"; shift 2;;
     --flush-every) FLUSH_EVERY="$2"; shift 2;;
     --base-seed) BASE_SEED="$2"; shift 2;;
+    --sample-dt) SAMPLE_DT="$2"; shift 2;;
     *) echo "Unknown argument: $1"; exit 2;;
   esac
 done
@@ -148,6 +150,9 @@ run_worker() {
   )
   if [ -n "$BASE_SEED" ]; then
     cmd+=(--base-seed "$BASE_SEED")
+  fi
+  if [ -n "$SAMPLE_DT" ]; then
+    cmd+=(--sample-dt "$SAMPLE_DT")
   fi
   "${cmd[@]}"
 }
