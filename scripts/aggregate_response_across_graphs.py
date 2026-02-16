@@ -77,10 +77,14 @@ def main():
         raise SystemExit(f"No graph_* folders found under {base_dir}")
 
     agg_paths = []
+    config_paths = []
     for graph_dir in graph_dirs:
         agg_path = graph_dir / f"eps{eps_tag}" / "response" / "aggregate.h5"
         if agg_path.exists():
             agg_paths.append(agg_path)
+        cfg_path = graph_dir / f"eps{eps_tag}" / "response" / "config_used.json"
+        if cfg_path.exists():
+            config_paths.append(cfg_path)
     if not agg_paths:
         raise SystemExit(f"No aggregate.h5 found for eps{eps_tag} under {base_dir}")
 
@@ -143,6 +147,10 @@ def main():
                 fh.attrs["perturbation_type"] = attrs_ref["perturbation_type"]
             if "perturbation_epsilon" in attrs_ref:
                 fh.attrs["perturbation_epsilon"] = attrs_ref["perturbation_epsilon"]
+
+    if config_paths:
+        cfg_out = out_path.with_name(f"config_used_eps_{eps_tag}.json")
+        cfg_out.write_text(config_paths[0].read_text())
 
     print(f"Saved merged aggregate to {out_path} (graphs={graph_count})")
 
