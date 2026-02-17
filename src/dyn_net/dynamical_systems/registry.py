@@ -2,12 +2,20 @@ from typing import Any
 from .double_well_single import F as dw_F, DoubleWellSingleParams
 from .double_well_all_to_all import F as dwaa_F, DoubleWellAllToAllParams
 from .double_well_network import F as dwn_F, DoubleWellNetworkParams
+from .double_well_network_annealed import (
+    F as dwn_annealed_F,
+    DoubleWellNetworkAnnealedParams,
+)
 from .kuramoto import F as kuramoto_F, KuramotoParams
 
 _REGISTRY = {
     "double_well_single": (dw_F, DoubleWellSingleParams),
     "double_well_all_to_all": (dwaa_F, DoubleWellAllToAllParams),
     "double_well_network": (dwn_F, DoubleWellNetworkParams),
+    "double_well_network_annealed": (
+        dwn_annealed_F,
+        DoubleWellNetworkAnnealedParams,
+    ),
     "kuramoto": (kuramoto_F, KuramotoParams),
 }
 

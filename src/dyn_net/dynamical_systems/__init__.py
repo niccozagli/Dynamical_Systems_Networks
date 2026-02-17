@@ -3,6 +3,7 @@ from .registry import get_drift
 from .double_well_all_to_all import DoubleWellAllToAllParams
 from .double_well_single import DoubleWellSingleParams
 from .double_well_network import DoubleWellNetworkParams
+from .double_well_network_annealed import DoubleWellNetworkAnnealedParams
 from .kuramoto import KuramotoParams
 
 __all__ = [
@@ -10,5 +11,6 @@ __all__ = [
     "DoubleWellAllToAllParams",
     "DoubleWellSingleParams",
     "DoubleWellNetworkParams",
+    "DoubleWellNetworkAnnealedParams",
     "KuramotoParams",
 ]

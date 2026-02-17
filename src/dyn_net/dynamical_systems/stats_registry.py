@@ -4,12 +4,17 @@ from .double_well_all_to_all import (
     STATS_FIELDS as dwaa_fields,
 )
 from .double_well_network import compute_stats as dwn_stats, STATS_FIELDS as dwn_fields
+from .double_well_network_annealed import (
+    compute_stats as dwn_annealed_stats,
+    STATS_FIELDS as dwn_annealed_fields,
+)
 from .kuramoto import compute_stats as kuramoto_stats, STATS_FIELDS as kuramoto_fields
 
 _STATS_REGISTRY = {
     "double_well_single": (dw_stats, dw_fields),
     "double_well_all_to_all": (dwaa_stats, dwaa_fields),
     "double_well_network": (dwn_stats, dwn_fields),
+    "double_well_network_annealed": (dwn_annealed_stats, dwn_annealed_fields),
     "kuramoto": (kuramoto_stats, kuramoto_fields),
 }
 
