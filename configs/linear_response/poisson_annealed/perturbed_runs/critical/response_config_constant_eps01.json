@@ -1,0 +1,15 @@
+{
+  "integrator": {
+    "tmin": 0.0,
+    "tmax": 10000.0,
+    "dt": 0.01,
+    "stats_every": 10,
+    "state_every": 10000,
+    "write_stats_at_start": true,
+    "write_state_at_start": true
+  },
+  "perturbation": {
+    "type": "constant",
+    "epsilon": 0.1
+  }
+}
