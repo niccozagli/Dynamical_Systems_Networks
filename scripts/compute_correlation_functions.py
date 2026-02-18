@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from scipy import signal
 
 
 def _read_stats(stats_path: Path):
@@ -71,6 +72,74 @@ def _representative_series(n_dir: Path, transient: float, field: str) -> tuple[n
     except Exception as exc:
         print(f"Skip {graph_dir}: {exc}")
         return None
+
+
+def _normalized_autocorr(x: np.ndarray) -> np.ndarray:
+    x = np.asarray(x, dtype=float)
+    x = x - np.mean(x)
+    corr = signal.correlate(x, x, mode="full", method="auto")
+    mid = x.size - 1
+    corr = corr[mid:]
+    if corr[0] == 0:
+        raise ValueError("C(0) is zero; cannot normalize correlation function.")
+    return corr / corr[0]
+
+
+def _corr_from_series(t: np.ndarray, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    dt = float(np.median(np.diff(t)))
+    if not np.isfinite(dt) or dt <= 0:
+        raise ValueError("Non-positive or invalid dt in time series.")
+    corr = _normalized_autocorr(x)
+    tau = np.arange(corr.size, dtype=float) * dt
+    return tau, corr
+
+
+def _quenched_correlation(
+    n_dir: Path, transient: float, field: str
+) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
+    graph_dirs = sorted(n_dir.glob("graph_*"))
+    if not graph_dirs:
+        return None
+    corrs = []
+    tau_ref = None
+    for graph_dir in graph_dirs:
+        try:
+            t, x = _load_time_series(graph_dir, transient, field)
+            tau, corr = _corr_from_series(t, x)
+        except Exception as exc:
+            print(f"Skip {graph_dir}: {exc}")
+            continue
+        if tau_ref is None:
+            tau_ref = tau
+        elif len(tau) != len(tau_ref) or np.max(np.abs(tau - tau_ref)) > 1e-8:
+            print(f"Skip {graph_dir}: time grid mismatch")
+            continue
+        corrs.append(corr)
+    if not corrs or tau_ref is None:
+        return None
+    corr_stack = np.stack(corrs, axis=0)
+    mean_corr = np.mean(corr_stack, axis=0)
+    std_corr = np.std(corr_stack, axis=0)
+    return tau_ref, mean_corr, std_corr
+
+
+def _annealed_correlation(
+    n_dir: Path, transient: float, field: str
+) -> tuple[np.ndarray, np.ndarray] | None:
+    result = _annealed_series(n_dir, transient, field)
+    if result is None:
+        return None
+    t, mean_series = result
+    return _corr_from_series(t, mean_series)
+
+
+def _color_for(setting: str, idx: int, total: int):
+    cmap = plt.get_cmap("Reds" if setting == "critical" else "Blues")
+    if total <= 1:
+        shade = 0.7
+    else:
+        shade = 0.3 + 0.7 * (idx / (total - 1))
+    return cmap(shade)
 
 
 def main():
@@ -198,6 +267,56 @@ def main():
         plot_path = summary_dir / "critical_annealed_vs_quenched_window.png"
         fig.savefig(plot_path, dpi=200, bbox_inches="tight")
         print(f"Saved plot {plot_path}")
+
+    # Correlation functions for degree-weighted order parameter
+    field = "deg_weighted_mean_x1"
+
+    # Quenched: per-graph correlations, then mean/std
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    for setting in args.settings:
+        setting_dir = base_dir / setting
+        n_vals = [n for n in args.Ns if (setting_dir / f"n{n}").exists()]
+        n_vals = sorted(n_vals)
+        for idx, n_val in enumerate(n_vals):
+            n_dir = setting_dir / f"n{n_val}"
+            result = _quenched_correlation(n_dir, args.transient, field)
+            if result is None:
+                continue
+            tau, mean_corr, std_corr = result
+            color = _color_for(setting, idx, len(n_vals))
+            ax.plot(tau, mean_corr, color=color, label=f"{setting} N={n_val}")
+            ax.fill_between(tau, mean_corr - std_corr, mean_corr + std_corr, color=color, alpha=0.2)
+    ax.set_title("Correlation functions (quenched, degree-weighted order)")
+    ax.set_xlabel("t")
+    ax.set_ylabel("C(t) / C(0)")
+    ax.legend(frameon=False)
+    fig.tight_layout()
+    plot_path = summary_dir / "correlation_functions_quenched.png"
+    fig.savefig(plot_path, dpi=200, bbox_inches="tight")
+    print(f"Saved plot {plot_path}")
+
+    # Annealed: mean order parameter across graphs first, then correlation
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    for setting in args.settings:
+        setting_dir = base_dir / setting
+        n_vals = [n for n in args.Ns if (setting_dir / f"n{n}").exists()]
+        n_vals = sorted(n_vals)
+        for idx, n_val in enumerate(n_vals):
+            n_dir = setting_dir / f"n{n_val}"
+            result = _annealed_correlation(n_dir, args.transient, field)
+            if result is None:
+                continue
+            tau, corr = result
+            color = _color_for(setting, idx, len(n_vals))
+            ax.plot(tau, corr, color=color, label=f"{setting} N={n_val}")
+    ax.set_title("Correlation functions (annealed, degree-weighted order)")
+    ax.set_xlabel("t")
+    ax.set_ylabel("C(t) / C(0)")
+    ax.legend(frameon=False)
+    fig.tight_layout()
+    plot_path = summary_dir / "correlation_functions_annealed.png"
+    fig.savefig(plot_path, dpi=200, bbox_inches="tight")
+    print(f"Saved plot {plot_path}")
 
 
 if __name__ == "__main__":
