@@ -7,6 +7,7 @@ from .double_well_network_annealed import (
     DoubleWellNetworkAnnealedParams,
 )
 from .kuramoto import F as kuramoto_F, KuramotoParams
+from .kuramoto_all_to_all import F as kuramoto_ata_F, KuramotoAllToAllParams
 
 _REGISTRY = {
     "double_well_single": (dw_F, DoubleWellSingleParams),
@@ -17,6 +18,7 @@ _REGISTRY = {
         DoubleWellNetworkAnnealedParams,
     ),
     "kuramoto": (kuramoto_F, KuramotoParams),
+    "kuramoto_all_to_all": (kuramoto_ata_F, KuramotoAllToAllParams),
 }
 
 def get_drift(name: str, params : dict[str,Any]):

@@ -9,6 +9,10 @@ from .double_well_network_annealed import (
     STATS_FIELDS as dwn_annealed_fields,
 )
 from .kuramoto import compute_stats as kuramoto_stats, STATS_FIELDS as kuramoto_fields
+from .kuramoto_all_to_all import (
+    compute_stats as kuramoto_ata_stats,
+    STATS_FIELDS as kuramoto_ata_fields,
+)
 
 _STATS_REGISTRY = {
     "double_well_single": (dw_stats, dw_fields),
@@ -16,6 +20,7 @@ _STATS_REGISTRY = {
     "double_well_network": (dwn_stats, dwn_fields),
     "double_well_network_annealed": (dwn_annealed_stats, dwn_annealed_fields),
     "kuramoto": (kuramoto_stats, kuramoto_fields),
+    "kuramoto_all_to_all": (kuramoto_ata_stats, kuramoto_ata_fields),
 }
 
 def get_stats(name: str):

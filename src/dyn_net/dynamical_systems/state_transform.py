@@ -9,6 +9,7 @@ def _kuramoto_transform(x):
 
 _STATE_TRANSFORMS: dict[str, Callable] = {
     "kuramoto": _kuramoto_transform,
+    "kuramoto_all_to_all": _kuramoto_transform,
 }
 
 

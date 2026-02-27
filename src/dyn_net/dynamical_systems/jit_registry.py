@@ -1,4 +1,8 @@
 from .jit_kuramoto import kuramoto_chunk, build_kuramoto_kernel_params
+from .jit_kuramoto_all_to_all import (
+    kuramoto_all_to_all_chunk,
+    build_kuramoto_all_to_all_kernel_params,
+)
 from .jit_double_well_all_to_all import (
     double_well_all_to_all_chunk,
     build_double_well_all_to_all_kernel_params,
@@ -14,6 +18,10 @@ from .jit_double_well_network_annealed import (
 
 _JIT_REGISTRY = {
     "kuramoto": (kuramoto_chunk, build_kuramoto_kernel_params),
+    "kuramoto_all_to_all": (
+        kuramoto_all_to_all_chunk,
+        build_kuramoto_all_to_all_kernel_params,
+    ),
     "double_well_all_to_all": (
         double_well_all_to_all_chunk,
         build_double_well_all_to_all_kernel_params,
