@@ -59,7 +59,7 @@ Run locally with workers (no jobs):
 scripts/response/run_response_local.sh \
   --unperturbed-dir results/linear_response/poisson/unperturbed_runs/critical/n1000/graph_0001 \
   --response-config configs/linear_response/poisson/perturbed_runs/critical/response_config_constant_eps001.json \
-  --output-dir results/linear_response/poisson/perturbed_runs/critical/n1000/graph_0001/eps001 \
+  --output-dir results/linear_response/poisson/perturbed_runs/constant/critical/n1000/graph_0001/eps001 \
   --transient 5000 \
   --workers 8 \
   --flush-every 10
@@ -79,7 +79,7 @@ Use the PBS wrapper and split work by jobs + workers:
 qsub -e trash -o trash -v ARGS="\
   --unperturbed-dir results/linear_response/poisson/unperturbed_runs/critical/n1000/graph_0001 \
   --response-config configs/linear_response/poisson/perturbed_runs/critical/response_config_constant_eps001.json \
-  --output-dir results/linear_response/poisson/perturbed_runs/critical/n1000/graph_0001/eps001 \
+  --output-dir results/linear_response/poisson/perturbed_runs/constant/critical/n1000/graph_0001/eps001 \
   --transient 5000 \
   --workers 8 \
   --job-id 0 \
@@ -94,7 +94,7 @@ Merge worker outputs at any time:
 
 ```bash
 scripts/response/run_response_aggregate.sh \
-  --output-dir results/linear_response/poisson/perturbed_runs/critical/n1000/graph_0001/eps001
+  --output-dir results/linear_response/poisson/perturbed_runs/constant/critical/n1000/graph_0001/eps001
 ```
 
 <details>

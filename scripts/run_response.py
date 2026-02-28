@@ -226,6 +226,46 @@ def _worker_rng(base_seed: int | None, total_workers: int, global_worker_id: int
     return np.random.default_rng(child)
 
 
+def _assert_output_compatible(out_dir: Path, perturb_name: str, eps: float) -> None:
+    cfg_path = out_dir / "config_used.json"
+    if cfg_path.exists():
+        try:
+            cfg = json.loads(cfg_path.read_text())
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"Failed to parse existing config_used.json in {out_dir}: {exc}") from exc
+        pert_cfg = cfg.get("perturbation", {})
+        cfg_type = pert_cfg.get("type")
+        if cfg_type is not None and str(cfg_type) != str(perturb_name):
+            raise ValueError(
+                f"Output dir already contains perturbation_type={cfg_type}; "
+                f"expected {perturb_name}. Choose a different output dir."
+            )
+        cfg_eps = pert_cfg.get("epsilon")
+        if cfg_eps is not None and float(cfg_eps) != float(eps):
+            raise ValueError(
+                f"Output dir already contains perturbation_epsilon={cfg_eps}; "
+                f"expected {eps}. Choose a different output dir."
+            )
+        return
+
+    worker_paths = sorted(out_dir.glob("worker_*.h5"))
+    if not worker_paths:
+        return
+    with h5py.File(worker_paths[0], "r", libver="latest") as fh:
+        ptype = fh.attrs.get("perturbation_type")
+        if ptype is not None and str(ptype) != str(perturb_name):
+            raise ValueError(
+                f"Output dir already contains perturbation_type={ptype}; "
+                f"expected {perturb_name}. Choose a different output dir."
+            )
+        peps = fh.attrs.get("perturbation_epsilon")
+        if peps is not None and float(peps) != float(eps):
+            raise ValueError(
+                f"Output dir already contains perturbation_epsilon={peps}; "
+                f"expected {eps}. Choose a different output dir."
+            )
+
+
 @app.command()
 def worker(
     unperturbed_dir: Annotated[str, typer.Option(help="Folder with state.h5 and config_used.json.")],
@@ -272,6 +312,7 @@ def worker(
 
     out_dir = Path(output_dir) / "response"
     out_dir.mkdir(parents=True, exist_ok=True)
+    _assert_output_compatible(out_dir, perturb_name, eps)
     (out_dir / "config_used.json").write_text(
         json.dumps({k: v for k, v in run_config.items() if k != "initial_condition"}, indent=2)
     )

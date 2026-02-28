@@ -13,9 +13,9 @@ set -euo pipefail
 #
 # Example:
 #   ./scripts/response/run_response_local.sh \
-#     --unperturbed-dir results/linear_response/poisson/critical/n1000/unperturbed_runs/graph_0001 \
-#     --response-config configs/linear_response/poisson/perturbed_runs/critical/response_config_constant.json \
-#     --output-dir results/linear_response/poisson/critical/n1000/perturbed_runs/graph_0001 \
+#     --unperturbed-dir results/linear_response/poisson/unperturbed_runs/critical/n1000/graph_0001 \
+#     --response-config configs/linear_response/poisson/perturbed_runs/critical/response_config_constant_eps001.json \
+#     --output-dir results/linear_response/poisson/perturbed_runs/constant/critical/n1000/graph_0001/eps001 \
 #     --transient 5000 \
 #     --workers 4 \
 #     --flush-every 50

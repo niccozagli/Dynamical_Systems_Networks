@@ -80,7 +80,7 @@ fi
 
 unperturbed_dir="results/linear_response/${NETWORK_NAME}/unperturbed_runs/${SETTING}/n${N}/graph_${GRAPH}"
 response_config="configs/linear_response/${NETWORK_NAME}/perturbed_runs/${SETTING}/response_config_${PERTURBATION}_eps${EPS_TAG}.json"
-output_dir="results/linear_response/${NETWORK_NAME}/perturbed_runs/${SETTING}/n${N}/graph_${GRAPH}/eps${EPS_TAG}"
+output_dir="results/linear_response/${NETWORK_NAME}/perturbed_runs/${PERTURBATION}/${SETTING}/n${N}/graph_${GRAPH}/eps${EPS_TAG}"
 
 echo "Submitting response jobs:"
 echo "  unperturbed_dir = ${unperturbed_dir}"
