@@ -19,6 +19,145 @@ def _potential_1d(x1: float, theta: float, k: int) -> float:
     return (x1_sq - 1.0) ** 2 / 4 + theta * float(k) * x1_sq / 2
 
 
+def _potential_1d_mean_field(x1: float, theta: float, k: int, m: float) -> float:
+    """Effective 1D potential for the mean-field self-consistency measure."""
+    x1_sq = x1 ** 2
+    return (x1_sq - 1.0) ** 2 / 4 + theta * float(k) * (x1_sq / 2 - x1 * m)
+
+
+def _mean_x1_given_k(
+    k: int,
+    theta: float,
+    sigma: float,
+    m: float,
+    *,
+    quad_opts: dict | None = None,
+) -> float:
+    """Compute <x1>_{k,m} by 1D quadrature with optional quad settings."""
+    if sigma <= 0.0:
+        raise ValueError("sigma must be positive")
+
+    coef = 2.0 / (sigma * sigma)
+    quad_opts = quad_opts or {}
+
+    def weight(x1: float) -> float:
+        return np.exp(-coef * _potential_1d_mean_field(x1, theta, k, m))
+
+    def num_integrand(x1: float) -> float:
+        return x1 * weight(x1)
+
+    num, _ = quad(num_integrand, -np.inf, np.inf, limit=200, **quad_opts)
+    denom, _ = quad(weight, -np.inf, np.inf, limit=200, **quad_opts)
+    if denom == 0.0:
+        return 0.0
+    return float(num / denom)
+
+
+def mean_field_rhs(
+    m: float,
+    theta: float,
+    ks: np.ndarray,
+    pi_k: np.ndarray,
+    sigma: float,
+    *,
+    quad_opts: dict | None = None,
+) -> float:
+    """Compute RHS of mean-field equation: sum_k Pi(k) <x1>_{k,m}."""
+    if ks.shape != pi_k.shape:
+        raise ValueError("ks and pi_k must have the same shape")
+    total = 0.0
+    for k, pi in zip(ks, pi_k):
+        total += float(pi) * _mean_x1_given_k(
+            int(k), theta, sigma, m, quad_opts=quad_opts
+        )
+    return total
+
+
+def solve_mean_field(
+    theta: float,
+    ks: np.ndarray,
+    pi_k: np.ndarray,
+    sigma: float,
+    *,
+    bracket: tuple[float, float],
+    quad_opts: dict | None = None,
+    rtol: float = 1e-6,
+    max_iter: int = 100,
+    prefer_nonzero: bool = True,
+    positive_root: bool = False,
+) -> float:
+    """Solve m = RHS(m) using bracketing; optionally skip the trivial m=0 root."""
+
+    def f(m: float) -> float:
+        return m - mean_field_rhs(
+            m, theta, ks, pi_k, sigma, quad_opts=quad_opts
+        )
+
+    a, b = bracket
+    if positive_root:
+        a = max(a, 0.0)
+    if a >= b:
+        raise ValueError("bracket must satisfy a < b")
+
+    if prefer_nonzero:
+        m_grid = np.linspace(a, b, 200)
+        values = np.array([f(m) for m in m_grid])
+        for i in range(len(m_grid) - 1):
+            if values[i] == 0.0:
+                continue
+            if values[i] * values[i + 1] < 0:
+                return cast(float, brentq(f, m_grid[i], m_grid[i + 1], rtol=rtol, maxiter=max_iter))
+
+    fa = f(a)
+    fb = f(b)
+    if fa == 0.0:
+        return a
+    if fb == 0.0:
+        return b
+    if fa * fb > 0.0:
+        raise ValueError("bracket does not bracket a root")
+
+    root = brentq(f, a, b, rtol=np.float64(rtol), maxiter=max_iter)
+    if positive_root:
+        return cast(float, abs(root))
+    return cast(float, root)
+
+
+def solve_mean_field_from_config(
+    config: dict,
+    *,
+    theta: float,
+    bracket: tuple[float, float],
+    quad_opts: dict | None = None,
+    rtol: float = 1e-6,
+    max_iter: int = 100,
+    poisson_tol: float = 1e-12,
+    poisson_k_max: int | None = None,
+    prefer_nonzero: bool = True,
+    positive_root: bool = False,
+) -> float:
+    """Solve mean-field equation using degree_distribution and sigma from config."""
+    degree_distribution = config["network"]["params"]["degree_distribution"]
+    sigma = float(config["noise"]["params"]["sigma"])
+    ks, _, pi_k = degree_distribution_to_pi_k(
+        degree_distribution,
+        poisson_tol=poisson_tol,
+        poisson_k_max=poisson_k_max,
+    )
+    return solve_mean_field(
+        theta,
+        ks,
+        pi_k,
+        sigma,
+        bracket=bracket,
+        quad_opts=quad_opts,
+        rtol=rtol,
+        max_iter=max_iter,
+        prefer_nonzero=prefer_nonzero,
+        positive_root=positive_root,
+    )
+
+
 def compute_x1_sq_k0(
     k: int,
     theta: float,
