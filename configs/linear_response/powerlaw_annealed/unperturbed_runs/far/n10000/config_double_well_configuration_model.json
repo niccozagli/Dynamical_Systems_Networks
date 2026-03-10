@@ -1,0 +1,42 @@
+{
+  "system": {
+    "name": "double_well_network_annealed",
+    "params": {
+      "theta": 0.018025565756685256,
+      "alpha_rot": 0.0
+    }
+  },
+  "network": {
+    "name": "configuration_model",
+    "params": {
+      "n": 10000,
+      "degree_distribution": {
+        "name": "scale_free_cutoff",
+        "params": {
+          "alpha": 2.5,
+          "k_min": 2,
+          "k_max": 244
+        }
+      }
+    }
+  },
+  "noise": {
+    "name": "additive_gaussian",
+    "params": {
+      "sigma": 0.4
+    }
+  },
+  "integrator": {
+    "tmin": 0,
+    "tmax": 105000,
+    "dt": 0.01,
+    "stats_every": 200,
+    "state_every": 200,
+    "write_stats_at_start": true,
+    "write_state_at_start": true
+  },
+  "initial_condition": {
+    "type": "normal",
+    "std": 1.0
+  }
+}
