@@ -7,15 +7,17 @@ set -euo pipefail
 #     --setting <critical|far> \
 #     --n <N> \
 #     --graph <NNNN> \
-#     --perturbation <type> \
-#     --epsilon-tag <tag> \
+#     [--response-config <path>] \
+#     [--output-tag <tag>] \
+#     [--perturbation <type>] \
+#     [--epsilon-tag <tag>] \
 #     --num-jobs <J> \
 #     --workers <W> \
 #     --transient <t> \
 #     --flush-every <n> \
 #     --sample-dt <dt>
 #
-# Example:
+# Example (legacy flat perturbation config):
 #   ./scripts/cluster/response/submit_response_jobs.sh \
 #     --network-name poisson \
 #     --setting critical \
@@ -28,6 +30,18 @@ set -euo pipefail
 #     --transient 5000 \
 #     --flush-every 10 \
 #     --sample-dt 10
+#
+# Example (degree-weighted or any explicit response config):
+#   ./scripts/cluster/response/submit_response_jobs.sh \
+#     --network-name poisson_annealed \
+#     --setting far \
+#     --n 1000 \
+#     --graph 0001 \
+#     --response-config configs/linear_response/poisson_annealed/perturbed_runs/far/response_config_degree_weighted_alpha_rot_gamma1p0_eps01.json \
+#     --num-jobs 10 \
+#     --workers 8 \
+#     --transient 5000 \
+#     --flush-every 10
 
 NETWORK_NAME=""
 SETTING=""
@@ -35,6 +49,8 @@ N=""
 GRAPH=""
 PERTURBATION=""
 EPS_TAG=""
+RESPONSE_CONFIG=""
+OUTPUT_TAG=""
 NUM_JOBS=""
 WORKERS=""
 TRANSIENT=""
@@ -49,6 +65,8 @@ while [ "$#" -gt 0 ]; do
     --graph) GRAPH="$2"; shift 2;;
     --perturbation) PERTURBATION="$2"; shift 2;;
     --epsilon-tag) EPS_TAG="$2"; shift 2;;
+    --response-config) RESPONSE_CONFIG="$2"; shift 2;;
+    --output-tag) OUTPUT_TAG="$2"; shift 2;;
     --num-jobs) NUM_JOBS="$2"; shift 2;;
     --workers) WORKERS="$2"; shift 2;;
     --transient) TRANSIENT="$2"; shift 2;;
@@ -62,12 +80,47 @@ done
 : "${SETTING:?--setting is required}"
 : "${N:?--n is required}"
 : "${GRAPH:?--graph is required}"
-: "${PERTURBATION:?--perturbation is required}"
-: "${EPS_TAG:?--epsilon-tag is required}"
 : "${NUM_JOBS:?--num-jobs is required}"
 : "${WORKERS:?--workers is required}"
 : "${TRANSIENT:?--transient is required}"
 : "${FLUSH_EVERY:?--flush-every is required}"
+
+if [ -n "$RESPONSE_CONFIG" ]; then
+  if [ ! -f "$RESPONSE_CONFIG" ]; then
+    echo "Response config not found: $RESPONSE_CONFIG"
+    exit 1
+  fi
+
+  CONFIG_TYPE="$(python3 - "$RESPONSE_CONFIG" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+cfg = json.loads(Path(sys.argv[1]).read_text())
+print(str(cfg["perturbation"]["type"]))
+PY
+)"
+  if [ -n "$PERTURBATION" ] && [ "$PERTURBATION" != "$CONFIG_TYPE" ]; then
+    echo "Provided --perturbation=$PERTURBATION does not match response config type=$CONFIG_TYPE"
+    exit 1
+  fi
+  PERTURBATION="$CONFIG_TYPE"
+
+  if [ -z "$OUTPUT_TAG" ]; then
+    OUTPUT_TAG="$(basename "$RESPONSE_CONFIG" .json)"
+    OUTPUT_TAG="${OUTPUT_TAG#response_config_}"
+    OUTPUT_TAG="${OUTPUT_TAG#${PERTURBATION}_}"
+  fi
+else
+  : "${PERTURBATION:?Either --response-config or --perturbation is required}"
+  : "${EPS_TAG:?Either --response-config or --epsilon-tag is required}"
+  RESPONSE_CONFIG="configs/linear_response/${NETWORK_NAME}/perturbed_runs/${SETTING}/response_config_${PERTURBATION}_eps${EPS_TAG}.json"
+  OUTPUT_TAG="eps${EPS_TAG}"
+  if [ ! -f "$RESPONSE_CONFIG" ]; then
+    echo "Response config not found: $RESPONSE_CONFIG"
+    exit 1
+  fi
+fi
 
 if [ "$NUM_JOBS" -le 0 ] || [ "$WORKERS" -le 0 ]; then
   echo "NUM_JOBS and WORKERS must be >= 1"
@@ -79,8 +132,8 @@ if [ "$FLUSH_EVERY" -le 0 ]; then
 fi
 
 unperturbed_dir="results/linear_response/${NETWORK_NAME}/unperturbed_runs/${SETTING}/n${N}/graph_${GRAPH}"
-response_config="configs/linear_response/${NETWORK_NAME}/perturbed_runs/${SETTING}/response_config_${PERTURBATION}_eps${EPS_TAG}.json"
-output_dir="results/linear_response/${NETWORK_NAME}/perturbed_runs/${PERTURBATION}/${SETTING}/n${N}/graph_${GRAPH}/eps${EPS_TAG}"
+response_config="${RESPONSE_CONFIG}"
+output_dir="results/linear_response/${NETWORK_NAME}/perturbed_runs/${PERTURBATION}/${SETTING}/n${N}/graph_${GRAPH}/${OUTPUT_TAG}"
 
 echo "Submitting response jobs:"
 echo "  unperturbed_dir = ${unperturbed_dir}"
