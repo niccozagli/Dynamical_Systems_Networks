@@ -300,11 +300,13 @@ def worker(
         raise FileNotFoundError(f"Missing config_used.json in {unperturbed_dir}")
 
     run_config = _load_run_config(unperturbed_dir, Path(response_config))
-    perturb_name = str(run_config["perturbation"]["type"])
+    perturb_cfg = run_config["perturbation"]
+    perturb_name = str(perturb_cfg["type"])
     eps = float(run_config["perturbation"]["epsilon"])
-    perturb = get_perturbation(perturb_name)
 
     bundle = _prepare_bundle(run_config)
+    deg = np.asarray(bundle["A"].sum(axis=1), dtype=float).reshape(-1)
+    perturb = get_perturbation(perturb_cfg, deg=deg)
     fieldnames = list(bundle["stats_fields"])
 
     total_workers = num_workers * num_jobs
