@@ -57,8 +57,13 @@ def main():
     )
     parser.add_argument(
         "--eps-tag",
-        required=True,
+        default="",
         help="Epsilon tag (e.g. 001).",
+    )
+    parser.add_argument(
+        "--output-tag",
+        default="",
+        help="Exact per-graph output folder name (e.g. constant_gamma1p0_eps01).",
     )
     parser.add_argument(
         "--output-dir",
@@ -69,8 +74,18 @@ def main():
 
     base_dir = Path(args.base_dir)
     eps_tag = args.eps_tag
+    output_tag = args.output_tag
     if not base_dir.exists():
         raise SystemExit(f"Base dir not found: {base_dir}")
+
+    if output_tag:
+        graph_output_dir = output_tag
+        output_name_tag = output_tag
+    elif eps_tag:
+        graph_output_dir = f"eps{eps_tag}"
+        output_name_tag = f"eps_{eps_tag}"
+    else:
+        raise SystemExit("Provide either --output-tag or --eps-tag.")
 
     graph_dirs = sorted(base_dir.glob("graph_*") )
     if not graph_dirs:
@@ -79,14 +94,14 @@ def main():
     agg_paths = []
     config_paths = []
     for graph_dir in graph_dirs:
-        agg_path = graph_dir / f"eps{eps_tag}" / "response" / "aggregate.h5"
+        agg_path = graph_dir / graph_output_dir / "response" / "aggregate.h5"
         if agg_path.exists():
             agg_paths.append(agg_path)
-        cfg_path = graph_dir / f"eps{eps_tag}" / "response" / "config_used.json"
+        cfg_path = graph_dir / graph_output_dir / "response" / "config_used.json"
         if cfg_path.exists():
             config_paths.append(cfg_path)
     if not agg_paths:
-        raise SystemExit(f"No aggregate.h5 found for eps{eps_tag} under {base_dir}")
+        raise SystemExit(f"No aggregate.h5 found for {graph_output_dir} under {base_dir}")
 
     state_plus = AggregateState()
     state_minus = AggregateState()
@@ -127,9 +142,9 @@ def main():
     if args.output_dir:
         out_dir = Path(args.output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_path = out_dir / f"aggregate_response_eps_{eps_tag}.h5"
+        out_path = out_dir / f"aggregate_response_{output_name_tag}.h5"
     else:
-        out_path = base_dir / f"aggregate_response_eps_{eps_tag}.h5"
+        out_path = base_dir / f"aggregate_response_{output_name_tag}.h5"
 
     with h5py.File(out_path, "w") as fh:
         fh.create_dataset("mean_plus", data=state_plus.mean, compression="gzip", compression_opts=4)
@@ -149,7 +164,7 @@ def main():
                 fh.attrs["perturbation_epsilon"] = attrs_ref["perturbation_epsilon"]
 
     if config_paths:
-        cfg_out = out_path.with_name(f"config_used_eps_{eps_tag}.json")
+        cfg_out = out_path.with_name(f"config_used_{output_name_tag}.json")
         cfg_out.write_text(config_paths[0].read_text())
 
     print(f"Saved merged aggregate to {out_path} (graphs={graph_count})")
