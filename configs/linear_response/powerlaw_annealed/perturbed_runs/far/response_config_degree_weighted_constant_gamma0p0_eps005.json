@@ -16,7 +16,7 @@
     },
     "degree_weight": {
       "type": "power",
-      "exponent": 0,
+      "exponent": 0.0,
       "normalize": "mean"
     }
   }
