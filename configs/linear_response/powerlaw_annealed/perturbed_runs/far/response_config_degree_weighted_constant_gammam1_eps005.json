@@ -1,0 +1,23 @@
+{
+  "integrator": {
+    "tmin": 0.0,
+    "tmax": 1500.0,
+    "dt": 0.01,
+    "stats_every": 10,
+    "state_every": 10000,
+    "write_stats_at_start": true,
+    "write_state_at_start": true
+  },
+  "perturbation": {
+    "type": "degree_weighted",
+    "epsilon": 0.05,
+    "phase_space": {
+      "type": "constant"
+    },
+    "degree_weight": {
+      "type": "power",
+      "exponent": -1,
+      "normalize": "mean"
+    }
+  }
+}
